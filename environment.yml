@@ -1,0 +1,10 @@
+name: opentex
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - motor>=3.4,<4.0
+      - pymongo>=4.6,<5.0
+
