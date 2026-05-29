@@ -21,14 +21,9 @@ COLLECTION_NAMES: Final[List[str]] = [
 FILE_TYPES: Final[List[str]] = ["tex", "bib", "image", "pdf"]
 PERMISSION_ROLES: Final[List[str]] = ["Admin", "Editor", "Viewer"]
 
-# Activity actions
-ACTIVITY_ACTIONS: Final[List[str]] = [
-    "create_project",
-    "update_project",
-    "delete_project",
-    "add_file",
-    "update_file",
-    "delete_file",
-    "grant_permission",
-    "revoke_permission",
-]
+# Activity actions and resources
+ACTIVITY_ACTIONS: Final[List[str]] = ["create", "read", "update", "delete"]
+ACTIVITY_RESOURCES: Final[List[str]] = ["project", "file", "permission"]
+
+# Project statuses
+PROJECT_STATUSES: Final[List[str]] = ["active", "archived", "draft"]

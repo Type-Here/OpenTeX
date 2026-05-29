@@ -1,0 +1,7 @@
+=== OpenTeX Seed completato ===
+users                inseriti:     50
+projects             inseriti:    100
+files                inseriti:    356
+permissions          inseriti:    252
+activity_logs        inseriti:  30000
+Tempo totale: 0.4s

@@ -42,6 +42,17 @@ python -m tests.verify_schema_validation
 
 The script inserts one valid and one invalid document per collection, prints the result, and removes all inserted test documents.
 
+## Seed dati
+
+Genera dati sintetici nelle 5 collezioni MongoDB (utenti, progetti, file, permessi, log).
+
+```bash
+pip install -r seed/requirements.txt
+python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
+```
+
+Per i dettagli sugli argomenti e l'output atteso, vedi [`seed/README_seed.md`](seed/README_seed.md).
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.

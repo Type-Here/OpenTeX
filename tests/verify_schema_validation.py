@@ -94,7 +94,7 @@ async def main() -> None:
         "filename": "main.tex",
         "file_type": "tex",
         "content": "\\documentclass{article}",
-        "created_at": now,
+        "uploaded_at": now,
     }
     results.append(await insert_expect_success(db.files, valid_file, "files valid"))
 
@@ -102,7 +102,7 @@ async def main() -> None:
         "project_id": project_id,
         "filename": "figure.png",
         "file_type": "image",
-        "created_at": now,
+        "uploaded_at": now,
     }
     results.append(await insert_expect_rejection(db.files, invalid_file, "files invalid"))
 
@@ -132,9 +132,11 @@ async def main() -> None:
     valid_log = {
         "user_id": user_id,
         "project_id": project_id,
-        "action": "create_project",
+        "action": "create",
+        "resource": "project",
+        "resource_id": project_id,
         "timestamp": now,
-        "metadata": {"note": "seed"},
+        "details": "Created project OpenTeX Sample",
     }
     results.append(
         await insert_expect_success(db.activity_logs, valid_log, "activity_logs valid")
