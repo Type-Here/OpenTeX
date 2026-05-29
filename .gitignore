@@ -223,3 +223,6 @@ __marimo__/
 internal_docs/
 internal/
 artifacts/
+
+#MacOS
+.DS_Store
