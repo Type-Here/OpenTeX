@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from db.collection_definitions import (
     ACTIVITY_ACTIONS,
+    ACTIVITY_RESOURCES,
     COLLECTION_ACTIVITY_LOGS,
     COLLECTION_FILES,
     COLLECTION_PERMISSIONS,
@@ -11,6 +12,7 @@ from db.collection_definitions import (
     COLLECTION_USERS,
     FILE_TYPES,
     PERMISSION_ROLES,
+    PROJECT_STATUSES,
 )
 
 
@@ -56,13 +58,14 @@ def get_validators() -> Dict[str, Dict[str, Any]]:
                     "created_at": {"bsonType": "date"},
                     "updated_at": {"bsonType": "date"},
                     "owner_id": {"bsonType": "objectId"},
+                    "status": {"enum": PROJECT_STATUSES},
                 },
             }
         },
         COLLECTION_FILES: {
             "$jsonSchema": {
                 "bsonType": "object",
-                "required": ["project_id", "filename", "file_type", "created_at"],
+                "required": ["project_id", "filename", "file_type", "uploaded_at"],
                 "properties": {
                     "project_id": {"bsonType": "objectId"},
                     "filename": {"bsonType": "string", "minLength": 1},
@@ -71,7 +74,9 @@ def get_validators() -> Dict[str, Dict[str, Any]]:
                     },
                     "content": {"bsonType": "string"},
                     "path": {"bsonType": "string"},
-                    "created_at": {"bsonType": "date"},
+                    "uploaded_at": {"bsonType": "date"},
+                    "uploaded_by": {"bsonType": "objectId"},
+                    "size_bytes": {"bsonType": "int"},
                     "updated_at": {"bsonType": "date"},
                 },
                 "oneOf": [
@@ -95,21 +100,29 @@ def get_validators() -> Dict[str, Dict[str, Any]]:
                     "project_id": {"bsonType": "objectId"},
                     "role": {"enum": PERMISSION_ROLES},
                     "granted_at": {"bsonType": "date"},
+                    "granted_by": {"bsonType": "objectId"},
                 },
             }
         },
         COLLECTION_ACTIVITY_LOGS: {
             "$jsonSchema": {
                 "bsonType": "object",
-                "required": ["user_id", "project_id", "action", "timestamp"],
+                "required": [
+                    "user_id",
+                    "project_id",
+                    "action",
+                    "resource",
+                    "resource_id",
+                    "timestamp",
+                ],
                 "properties": {
                     "user_id": {"bsonType": "objectId"},
                     "project_id": {"bsonType": "objectId"},
-                    "action": {
-                        "enum": ACTIVITY_ACTIONS,
-                    },
+                    "action": {"enum": ACTIVITY_ACTIONS},
+                    "resource": {"enum": ACTIVITY_RESOURCES},
+                    "resource_id": {"bsonType": "objectId"},
                     "timestamp": {"bsonType": "date"},
-                    "metadata": {"bsonType": "object"},
+                    "details": {"bsonType": "string"},
                 },
             }
         },
