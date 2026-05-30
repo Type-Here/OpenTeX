@@ -53,6 +53,47 @@ python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
 
 Per i dettagli sugli argomenti e l'output atteso, vedi [`seed/README_seed.md`](seed/README_seed.md).
 
+## Avvio rapido (Docker)
+
+### Prerequisiti
+- Docker >= 24.0
+- Docker Compose >= 2.20
+
+### Setup
+
+```bash
+# 1. Clona il repository
+git clone <url-repo>
+cd opentex
+
+# 2. Configura le variabili d'ambiente
+cp .env.example .env
+# Edita .env con i tuoi valori (NON committare il file .env)
+
+# 3. Avvia i servizi
+docker-compose up --build -d
+
+# 4. Verifica
+curl http://localhost:8000/health
+```
+
+### Servizi esposti
+
+| Servizio | URL | Note |
+|----------|-----|------|
+| Backend API | http://localhost:8000 | FastAPI + Motor |
+| Swagger UI | http://localhost:8000/docs | Documentazione interattiva |
+| MongoDB | localhost:27017 | Credenziali in `.env` |
+
+### Spegnere i servizi
+
+```bash
+docker-compose down          # ferma i container
+docker-compose down -v       # ferma e rimuove i volumi (reset DB)
+```
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.
