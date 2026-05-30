@@ -149,8 +149,9 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments — MAI committare
 .env
+*.env
 .envrc
 .venv
 env/
@@ -226,3 +227,13 @@ artifacts/
 
 #MacOS
 .DS_Store
+
+# Node / Frontend
+node_modules/
+.next/
+
+# Docker
+.docker/
+
+# Media / upload locali
+backend/media/
