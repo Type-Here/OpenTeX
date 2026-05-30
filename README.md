@@ -94,6 +94,23 @@ docker-compose down -v       # ferma e rimuove i volumi (reset DB)
 
 ---
 
+## API endpoints — Projects (Issue #4)
+
+Base URL: `http://localhost:8000`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/projects/` | Create a new project |
+| `GET` | `/projects/` | List all projects (optional `?owner_id=`) |
+| `GET` | `/projects/{id}` | Get a single project by ID |
+| `PUT` | `/projects/{id}` | Update title / abstract / tags |
+| `DELETE` | `/projects/{id}` | Delete a project |
+| `GET` | `/projects/{id}/files` | List files linked to a project |
+
+Interactive documentation: `http://localhost:8000/docs`
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.
