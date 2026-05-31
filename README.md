@@ -94,6 +94,26 @@ docker-compose down -v       # ferma e rimuove i volumi (reset DB)
 
 ---
 
+## Indexes (Issue #8)
+
+Creates and verifies all indexes via a versioned script. Must be run after the schema validation script and seed data load.
+
+| Index | Collection | Fields | Type |
+|-------|-----------|--------|------|
+| `projects_text_search` | `projects` | `title`, `abstract` | Text |
+| `projects_owner_date` | `projects` | `owner_id` + `created_at` | Compound |
+| `permissions_project_id` | `permissions` | `project_id` | Single field |
+| `activity_logs_project_id` | `activity_logs` | `project_id` | Single field |
+| `files_project_id` | `files` | `project_id` | Single field |
+
+```bash
+python -m scripts.indexes.create_indexes
+```
+
+The script creates all indexes and verifies usage with `explain()`, printing `[IXSCAN]` or `[COLLSCAN]` for each representative query.
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.
