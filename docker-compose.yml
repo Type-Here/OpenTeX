@@ -1,6 +1,6 @@
 services:
   mongo:
-    image: mongo:8.0
+    image: mongo:8.0.23
     container_name: opentex-mongo
     restart: unless-stopped
     ports:
@@ -9,6 +9,8 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: ${MONGO_DB}
+      # Workaround for MongoDB 8.0 crash on Linux kernel >= 6.8 (rseq ABI conflict)
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
     volumes:
       - mongo_data:/data/db
     healthcheck:
