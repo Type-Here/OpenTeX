@@ -3,12 +3,15 @@ from typing import Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo import ReturnDocument
 
 from app.database import get_database
+from app.dependencies import get_current_user
 from app.models.file import FileResponse
 from app.models.project import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.models.permissions import Role
+from app.services import permissions_service
 
 router = APIRouter()
 
@@ -49,17 +52,26 @@ async def list_projects(owner_id: Optional[str] = Query(default=None)):
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: str):
+async def get_project(
+    project_id: str,
+    current_user: str = Depends(get_current_user),
+):
     db = get_database()
     doc = await db[_PROJECTS].find_one({"_id": _oid(project_id)})
     if doc is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    await permissions_service.require_access(db, current_user, project_id, Role.VIEWER)
     return ProjectResponse.from_mongo(doc)
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
-async def update_project(project_id: str, body: ProjectUpdate):
+async def update_project(
+    project_id: str,
+    body: ProjectUpdate,
+    current_user: str = Depends(get_current_user),
+):
     db = get_database()
+    await permissions_service.require_access(db, current_user, project_id, Role.EDITOR)
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=422, detail="No fields provided for update")
@@ -75,18 +87,36 @@ async def update_project(project_id: str, body: ProjectUpdate):
 
 
 @router.delete("/{project_id}", status_code=204)
-async def delete_project(project_id: str):
+async def delete_project(
+    project_id: str,
+    current_user: str = Depends(get_current_user),
+):
     db = get_database()
-    result = await db[_PROJECTS].delete_one({"_id": _oid(project_id)})
-    if result.deleted_count == 0:
+    project = await db[_PROJECTS].find_one({"_id": _oid(project_id)})
+    if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    if str(project["owner_id"]) != current_user:
+        role = await permissions_service.get_user_role(db, current_user, project_id)
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "detail": "Access denied: insufficient permissions",
+                "required_role": "owner",
+                "your_role": role.value if role else "none",
+            },
+        )
+    await db[_PROJECTS].delete_one({"_id": _oid(project_id)})
 
 
 @router.get("/{project_id}/files", response_model=list[FileResponse])
-async def list_project_files(project_id: str):
+async def list_project_files(
+    project_id: str,
+    current_user: str = Depends(get_current_user),
+):
     db = get_database()
     oid = _oid(project_id)
     if await db[_PROJECTS].find_one({"_id": oid}) is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    await permissions_service.require_access(db, current_user, project_id, Role.VIEWER)
     cursor = db[_FILES].find({"project_id": oid})
     return [FileResponse.from_mongo(doc) async for doc in cursor]
