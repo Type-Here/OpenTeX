@@ -94,6 +94,41 @@ docker-compose down -v       # ferma e rimuove i volumi (reset DB)
 
 ---
 
+## Benchmark — queries with vs without indexes (Issue #9)
+
+Measures average query execution time over 10 runs, comparing the same query with and without the indexes created in issue #8.
+
+```bash
+MONGODB_URI=... OPENTEX_DB_NAME=opentex_db python -m scripts.benchmark.run_benchmark
+```
+
+The script prints a results table and a ready-to-paste markdown table at the end of its output.
+
+### Results
+
+Benchmark results (average over 10 runs):
+```
+Connected — N_RUNS=10
+
+=== Benchmark ===
+  running: Text search (title + abstract) ... 1.753 ms / 2.003 ms  (1.1x)
+  running: Compound: owner_id filter + created_at sort ... 1.492 ms / 1.655 ms  (1.1x)
+  running: Permissions by project_id ... 1.561 ms / 1.667 ms  (1.1x)
+  running: Activity logs by project_id ... 1.750 ms / 19.024 ms  (10.9x)
+  running: Files by project_id ... 1.609 ms / 1.979 ms  (1.2x)
+```
+| Query | With index (ms) | Without index (ms) | Speedup |
+|-------|-----------------|-------------------|---------|
+| Text search (title + abstract) | 1.753 | 2.003 | 1.1x |
+| Compound: owner_id filter + created_at sort | 1.492 | 1.655 | 1.1x |
+| Permissions by project_id | 1.561 | 1.667 | 1.1x |
+| Activity logs by project_id | 1.750 | 19.024 | 10.9x |
+| Files by project_id | 1.609 | 1.979 | 1.2x |
+
+_N = 10 runs per query, averaged. 1 warmup run excluded. Text "without index" uses case-insensitive regex (equivalent semantic, forces COLLSCAN)._
+
+**Interpretation:** The activity logs query shows the largest speedup (10.9x) because it is the only query operating on a genuinely large collection (30 000 documents). Without the index, MongoDB performs a full COLLSCAN across all 30k log entries; with the index it resolves the same query in O(log n). The remaining queries show modest gains (~1.1–1.2x) because their target collections are small (≤ 356 documents): at that scale COLLSCAN and IXSCAN complete in similar wall-clock time, and the overhead of the Docker network round-trip dominates. The speedup from these indexes would grow proportionally with data volume — at 1M activity logs the gap would widen further, as expected from the O(n) vs O(log n) complexity difference.
+
 ## Indexes (Issue #8)
 
 Creates and verifies all indexes via a versioned script. Must be run after the schema validation script and seed data load.
