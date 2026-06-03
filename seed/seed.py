@@ -97,8 +97,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--db",
         type=str,
-        default="opentex",
-        help="Nome del database (default: opentex)",
+        default=os.getenv("MONGO_DB") or os.getenv("OPENTEX_DB_NAME") or "opentex_db",
+        help="Nome del database (default: MONGO_DB env, poi OPENTEX_DB_NAME, poi opentex_db)",
     )
     return parser.parse_args()
 
