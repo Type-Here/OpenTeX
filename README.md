@@ -94,6 +94,24 @@ docker-compose down -v       # ferma e rimuove i volumi (reset DB)
 
 ---
 
+## Indexes (Issue #8)
+
+Creates and verifies all indexes via a versioned script. Must be run after the schema validation script and seed data load.
+
+| Index | Collection | Fields | Type |
+|-------|-----------|--------|------|
+| `projects_text_search` | `projects` | `title`, `abstract` | Text |
+| `projects_owner_date` | `projects` | `owner_id` + `created_at` | Compound |
+| `permissions_project_id` | `permissions` | `project_id` | Single field |
+| `activity_logs_project_id` | `activity_logs` | `project_id` | Single field |
+| `files_project_id` | `files` | `project_id` | Single field |
+
+```bash
+python -m scripts.indexes.create_indexes
+```
+
+The script creates all indexes and verifies usage with `explain()`, printing `[IXSCAN]` or `[COLLSCAN]` for each representative query.
+
 ## Aggregation statistics (Issue #7)
 
 Cross-collection aggregation pipeline joining `projects → users → permissions → activity_logs`.
@@ -138,6 +156,8 @@ curl "http://localhost:8000/stats/projects?date_from=2024-01-01T00:00:00&date_to
     "total_activity": 1520
   }
 ]
+```
+
 ## API endpoints — Projects (Issue #4)
 
 Base URL: `http://localhost:8000`
@@ -181,6 +201,7 @@ L'owner del progetto è sempre Admin implicito. Solo l'owner può cancellare un 
 
 Passare l'ObjectId dell'utente nell'header `X-User-Id`:
 
+Example:
 ```
 X-User-Id: 507f1f77bcf86cd799439011
 ```
