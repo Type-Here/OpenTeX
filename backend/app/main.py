@@ -8,12 +8,15 @@ Paradigma CAP: AP  |  Consistenza: BASE / eventual consistency
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import ping_database
 from app.routers.stats import router as stats_router
+from app.routers.permissions import router as permissions_router
+from app.routers.projects import router as projects_router
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -54,6 +57,17 @@ app.add_middleware(
 
 
 app.include_router(stats_router, prefix="/stats", tags=["stats"])
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    # When detail is a dict (e.g. 403 with role info), return it flat — not nested under "detail".
+    if isinstance(exc.detail, dict):
+        return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+app.include_router(projects_router, prefix="/projects", tags=["projects"])
+app.include_router(permissions_router, prefix="/projects", tags=["permissions"])
 
 
 @app.get("/health", tags=["system"])

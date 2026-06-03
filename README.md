@@ -138,6 +138,51 @@ curl "http://localhost:8000/stats/projects?date_from=2024-01-01T00:00:00&date_to
     "total_activity": 1520
   }
 ]
+## API endpoints — Projects (Issue #4)
+
+Base URL: `http://localhost:8000`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/projects/` | Create a new project |
+| `GET` | `/projects/` | List all projects (optional `?owner_id=`) |
+| `GET` | `/projects/{id}` | Get a single project by ID |
+| `PUT` | `/projects/{id}` | Update title / abstract / tags |
+| `DELETE` | `/projects/{id}` | Delete a project |
+| `GET` | `/projects/{id}/files` | List files linked to a project |
+
+Interactive documentation: `http://localhost:8000/docs`
+
+---
+
+## Permessi e ruoli
+
+OpenTeX usa un sistema di permessi basato su ruoli (RBAC minimale).
+
+### Ruoli disponibili
+
+| Ruolo | Lettura | Modifica | Cancellazione | Gestione permessi |
+|---|---|---|---|---|
+| Admin | ✅ | ✅ | ✅ | ✅ |
+| Editor | ✅ | ✅ | ❌ | ❌ |
+| Viewer | ✅ | ❌ | ❌ | ❌ |
+
+L'owner del progetto è sempre Admin implicito. Solo l'owner può cancellare un progetto.
+
+### Endpoint permessi
+
+| Metodo | URL | Autorizzazione | Descrizione |
+|---|---|---|---|
+| `POST` | `/projects/{id}/permissions` | Admin | Assegna/aggiorna ruolo |
+| `DELETE` | `/projects/{id}/permissions/{user_id}` | Admin | Revoca accesso |
+| `GET` | `/projects/{id}/permissions` | Viewer+ | Lista collaboratori |
+
+### Autenticazione (dev/test)
+
+Passare l'ObjectId dell'utente nell'header `X-User-Id`:
+
+```
+X-User-Id: 507f1f77bcf86cd799439011
 ```
 
 ---
