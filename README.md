@@ -111,6 +111,38 @@ Interactive documentation: `http://localhost:8000/docs`
 
 ---
 
+## Permessi e ruoli
+
+OpenTeX usa un sistema di permessi basato su ruoli (RBAC minimale).
+
+### Ruoli disponibili
+
+| Ruolo | Lettura | Modifica | Cancellazione | Gestione permessi |
+|---|---|---|---|---|
+| Admin | ✅ | ✅ | ✅ | ✅ |
+| Editor | ✅ | ✅ | ❌ | ❌ |
+| Viewer | ✅ | ❌ | ❌ | ❌ |
+
+L'owner del progetto è sempre Admin implicito. Solo l'owner può cancellare un progetto.
+
+### Endpoint permessi
+
+| Metodo | URL | Autorizzazione | Descrizione |
+|---|---|---|---|
+| `POST` | `/projects/{id}/permissions` | Admin | Assegna/aggiorna ruolo |
+| `DELETE` | `/projects/{id}/permissions/{user_id}` | Admin | Revoca accesso |
+| `GET` | `/projects/{id}/permissions` | Viewer+ | Lista collaboratori |
+
+### Autenticazione (dev/test)
+
+Passare l'ObjectId dell'utente nell'header `X-User-Id`:
+
+```
+X-User-Id: 507f1f77bcf86cd799439011
+```
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.
