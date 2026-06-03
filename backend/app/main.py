@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import ping_database
+from app.routers.stats import router as stats_router
 from app.routers.permissions import router as permissions_router
 from app.routers.projects import router as projects_router
 
@@ -54,6 +55,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+app.include_router(stats_router, prefix="/stats", tags=["stats"])
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:

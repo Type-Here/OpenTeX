@@ -94,6 +94,50 @@ docker-compose down -v       # ferma e rimuove i volumi (reset DB)
 
 ---
 
+## Aggregation statistics (Issue #7)
+
+Cross-collection aggregation pipeline joining `projects → users → permissions → activity_logs`.
+Returns collaboration and activity statistics grouped by owner department, sorted by total activity descending.
+
+### Endpoint
+
+```
+GET /stats/projects
+```
+
+Optional query parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `department` | string | Filter by owner department |
+| `date_from` | ISO 8601 datetime | Include only projects created from this date |
+| `date_to` | ISO 8601 datetime | Include only projects created up to this date |
+
+### Example calls
+
+```bash
+# All departments
+curl http://localhost:8000/stats/projects | python3 -m json.tool
+
+# Filter by department
+curl "http://localhost:8000/stats/projects?department=Engineering" | python3 -m json.tool
+
+# Filter by date range
+curl "http://localhost:8000/stats/projects?date_from=2024-01-01T00:00:00&date_to=2025-01-01T00:00:00" | python3 -m json.tool
+```
+
+### Example response
+
+```json
+[
+  {
+    "department": "Engineering",
+    "project_count": 12,
+    "total_collaborators": 34,
+    "avg_collaborators": 2.83,
+    "total_activity": 1520
+  }
+]
 ## API endpoints — Projects (Issue #4)
 
 Base URL: `http://localhost:8000`
