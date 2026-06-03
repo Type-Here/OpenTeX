@@ -243,6 +243,40 @@ X-User-Id: 507f1f77bcf86cd799439011
 
 ---
 
+## Frontend — Dashboard UI (Issue #6)
+
+React + Vite dashboard per la gestione dei progetti. Richiede Node.js >= 18.
+
+### Avvio frontend (sviluppo)
+
+```bash
+cd frontend
+npm install      # solo la prima volta
+npm run dev
+```
+
+L'app sarà disponibile su **http://localhost:5173** e si connette automaticamente al backend su `http://localhost:8000` tramite il dev proxy di Vite.
+
+> Il backend deve essere in esecuzione prima di avviare il frontend.
+
+### Funzionalità
+
+- **Login minimale**: selezione utente dalla lista degli utenti seedati
+- **Dashboard "I miei progetti"**: lista dei progetti di cui si è owner, con sezione "Shared with me" per i progetti condivisi
+- **Creazione progetto**: form modale con titolo, abstract e tag (separati da virgola)
+- **Modifica progetto**: aggiornamento di titolo, abstract e tag (richiede ruolo Editor o superiore)
+- **Eliminazione progetto**: solo per l'owner, con conferma
+- **Gestione collaboratori**: assegnazione/revoca ruoli (Admin / Editor / Viewer) — visibile solo all'owner
+
+### Endpoint aggiunto al backend
+
+| Metodo | URL | Descrizione |
+|--------|-----|-------------|
+| `GET` | `/users/` | Lista tutti gli utenti (per il login picker) |
+| `GET` | `/users/{id}` | Dettaglio di un singolo utente |
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.
