@@ -42,12 +42,21 @@ async def create_project(body: ProjectCreate):
 
 
 @router.get("/", response_model=list[ProjectResponse])
-async def list_projects(owner_id: Optional[str] = Query(default=None)):
+async def list_projects(
+    owner_id: Optional[str] = Query(default=None),
+    member_id: Optional[str] = Query(default=None, description="Return projects where this user has an explicit permission entry"),
+):
     db = get_database()
-    filt: dict = {}
-    if owner_id is not None:
-        filt["owner_id"] = _oid(owner_id)
-    cursor = db[_PROJECTS].find(filt)
+    if member_id is not None:
+        perms = await db["permissions"].find(
+            {"user_id": _oid(member_id)}, {"project_id": 1}
+        ).to_list(length=None)
+        project_ids = [p["project_id"] for p in perms]
+        cursor = db[_PROJECTS].find({"_id": {"$in": project_ids}})
+    elif owner_id is not None:
+        cursor = db[_PROJECTS].find({"owner_id": _oid(owner_id)})
+    else:
+        cursor = db[_PROJECTS].find({})
     return [ProjectResponse.from_mongo(doc) async for doc in cursor]
 
 
