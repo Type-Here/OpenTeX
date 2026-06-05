@@ -1,0 +1,147 @@
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-top: 8px;
+}
+
+.panelTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.permList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.permRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.permUser {
+  flex: 1;
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roleBadge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.roleBadge.admin {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.roleBadge.editor {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.roleBadge.viewer {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.revokeBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.revokeBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.addTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+}
+
+.addForm {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.addRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.select {
+  flex: 1;
+  min-width: 150px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  font-size: 13px;
+}
+
+.select:focus {
+  border-color: var(--accent);
+}
+
+.addBtn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.addBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.empty, .message {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.error {
+  color: var(--accent);
+  font-size: 13px;
+  margin-top: 8px;
+}

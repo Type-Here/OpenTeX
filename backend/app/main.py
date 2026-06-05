@@ -17,6 +17,7 @@ from app.database import ping_database
 from app.routers.stats import router as stats_router
 from app.routers.permissions import router as permissions_router
 from app.routers.projects import router as projects_router
+from app.routers.users import router as users_router
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -66,6 +67,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
+app.include_router(users_router, prefix="/users", tags=["users"])
 app.include_router(projects_router, prefix="/projects", tags=["projects"])
 app.include_router(permissions_router, prefix="/projects", tags=["permissions"])
 

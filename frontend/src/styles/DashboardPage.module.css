@@ -1,0 +1,127 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: var(--primary);
+  color: #fff;
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  padding-left: 24px;
+}
+
+.navBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.85);
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.navBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.userMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.logoutBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.logoutBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.main {
+  padding: 32px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sectionHeader h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.sectionTitle {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-top: 40px;
+  margin-bottom: 20px;
+}
+
+.newBtn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.newBtn:hover {
+  background: var(--accent-hover);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.message, .empty {
+  color: var(--text-muted);
+  padding: 24px 0;
+}
+
+.error {
+  color: var(--accent);
+  padding: 16px 0;
+}
