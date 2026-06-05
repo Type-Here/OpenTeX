@@ -24,6 +24,28 @@
   letter-spacing: 0.05em;
 }
 
+.nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  padding-left: 24px;
+}
+
+.navBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.85);
+  padding: 5px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.navBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .userMeta {
   display: flex;
   align-items: center;

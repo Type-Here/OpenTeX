@@ -18,7 +18,7 @@ export default function LoginPage({ onLogin }) {
   }, [])
 
   const handleSelect = (u) => {
-    login({ user_id: u.id, first_name: u.first_name, last_name: u.last_name, email: u.email })
+    login({ user_id: u.id, first_name: u.first_name, last_name: u.last_name, email: u.email, is_admin: u.is_admin })
     onLogin()
   }
 

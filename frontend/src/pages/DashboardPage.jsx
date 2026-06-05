@@ -5,7 +5,7 @@ import ProjectCard from '../components/ProjectCard'
 import ProjectFormModal from '../components/ProjectFormModal'
 import styles from '../styles/DashboardPage.module.css'
 
-export default function DashboardPage({ onOpenProject }) {
+export default function DashboardPage({ onOpenProject, onNavigate }) {
   const { user, logout } = useAuth()
   const [myProjects, setMyProjects] = useState([])
   const [sharedProjects, setSharedProjects] = useState([])
@@ -17,12 +17,12 @@ export default function DashboardPage({ onOpenProject }) {
     setLoading(true)
     setError(null)
     try {
-      const [owned, all] = await Promise.all([
+      const [owned, shared] = await Promise.all([
         listProjects({ owner_id: user.user_id }),
-        listProjects(),
+        listProjects({ member_id: user.user_id }),
       ])
       setMyProjects(owned)
-      setSharedProjects(all.filter((p) => p.owner_id !== user.user_id))
+      setSharedProjects(shared)
     } catch {
       setError('Failed to load projects.')
     } finally {
@@ -36,6 +36,12 @@ export default function DashboardPage({ onOpenProject }) {
     <div className={styles.page}>
       <header className={styles.header}>
         <span className={styles.logo}>OpenTeX</span>
+        {user.is_admin && (
+          <nav className={styles.nav}>
+            <button className={styles.navBtn} onClick={() => onNavigate('stats')}>Statistics</button>
+            <button className={styles.navBtn} onClick={() => onNavigate('benchmarks')}>Benchmarks</button>
+          </nav>
+        )}
         <div className={styles.userMeta}>
           <span>{user.first_name} {user.last_name}</span>
           <button className={styles.logoutBtn} onClick={logout}>Log out</button>

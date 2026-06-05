@@ -3,9 +3,11 @@ import { useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import StatsPage from './pages/StatsPage'
+import BenchmarksPage from './pages/BenchmarksPage'
 
 export default function App() {
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [view, setView] = useState(() =>
     isAuthenticated ? { page: 'dashboard' } : { page: 'login' }
   )
@@ -25,9 +27,18 @@ export default function App() {
     )
   }
 
+  if (view.page === 'stats' && user?.is_admin) {
+    return <StatsPage onBack={() => navigate('dashboard')} />
+  }
+
+  if (view.page === 'benchmarks' && user?.is_admin) {
+    return <BenchmarksPage onBack={() => navigate('dashboard')} />
+  }
+
   return (
     <DashboardPage
       onOpenProject={(id) => navigate('detail', { projectId: id })}
+      onNavigate={(page) => navigate(page)}
     />
   )
 }
