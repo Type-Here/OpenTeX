@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     last_name: str
     email: str
     department: str
+    is_admin: bool = False
 
     @classmethod
     def from_mongo(cls, doc: dict) -> "UserResponse":
@@ -25,6 +26,7 @@ class UserResponse(BaseModel):
             last_name=doc.get("last_name", ""),
             email=doc.get("email", ""),
             department=doc.get("department", ""),
+            is_admin=bool(doc.get("is_admin", False)),
         )
 
 
