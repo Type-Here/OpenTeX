@@ -42,54 +42,55 @@ python -m tests.verify_schema_validation
 
 The script inserts one valid and one invalid document per collection, prints the result, and removes all inserted test documents.
 
-## Seed dati
+## Seed data
 
-Genera dati sintetici nelle 5 collezioni MongoDB (utenti, progetti, file, permessi, log).
+Generates synthetic data across the 5 MongoDB collections (users, projects, files, permissions, logs).
 
 ```bash
 pip install -r seed/requirements.txt
 python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
 ```
 
-Per i dettagli sugli argomenti e l'output atteso, vedi [`seed/README_seed.md`](seed/README_seed.md).
+For argument details and expected output see [`seed/README_seed.md`](seed/README_seed.md).
 
-## Avvio rapido (Docker)
+## Quick start (Docker)
 
-### Prerequisiti
+### Prerequisites
 - Docker >= 24.0
 - Docker Compose >= 2.20
 
 ### Setup
 
 ```bash
-# 1. Clona il repository
+# 1. Clone the repository
 git clone <url-repo>
 cd opentex
 
-# 2. Configura le variabili d'ambiente
+# 2. Configure environment variables
 cp .env.example .env
-# Edita .env con i tuoi valori (NON committare il file .env)
+# Edit .env with your values (never commit the .env file)
 
-# 3. Avvia i servizi
-docker-compose up --build -d
+# 3. Start all services
+docker compose up --build -d
 
-# 4. Verifica
+# 4. Verify
 curl http://localhost:8000/health
 ```
 
-### Servizi esposti
+### Exposed services
 
-| Servizio | URL | Note |
-|----------|-----|------|
+| Service | URL | Notes |
+|---------|-----|-------|
+| Frontend | http://localhost:5173 | React + Vite |
 | Backend API | http://localhost:8000 | FastAPI + Motor |
-| Swagger UI | http://localhost:8000/docs | Documentazione interattiva |
-| MongoDB | localhost:27017 | Credenziali in `.env` |
+| Swagger UI | http://localhost:8000/docs | Interactive API docs |
+| MongoDB | localhost:27017 | Credentials in `.env` |
 
-### Spegnere i servizi
+### Stop services
 
 ```bash
-docker-compose down          # ferma i container
-docker-compose down -v       # ferma e rimuove i volumi (reset DB)
+docker compose down       # stop containers
+docker compose down -v    # stop and remove volumes (DB reset)
 ```
 
 ---
@@ -210,70 +211,107 @@ Interactive documentation: `http://localhost:8000/docs`
 
 ---
 
-## Permessi e ruoli
+## Permissions and roles (Issue #5)
 
-OpenTeX usa un sistema di permessi basato su ruoli (RBAC minimale).
+OpenTeX uses a minimal role-based access control system (RBAC).
 
-### Ruoli disponibili
+### Available roles
 
-| Ruolo | Lettura | Modifica | Cancellazione | Gestione permessi |
-|---|---|---|---|---|
+| Role | Read | Edit | Delete | Manage permissions |
+|------|------|------|--------|--------------------|
 | Admin | ✅ | ✅ | ✅ | ✅ |
 | Editor | ✅ | ✅ | ❌ | ❌ |
 | Viewer | ✅ | ❌ | ❌ | ❌ |
 
-L'owner del progetto è sempre Admin implicito. Solo l'owner può cancellare un progetto.
+The project owner is always an implicit Admin. Only the owner can delete a project.
 
-### Endpoint permessi
+### Permission endpoints
 
-| Metodo | URL | Autorizzazione | Descrizione |
-|---|---|---|---|
-| `POST` | `/projects/{id}/permissions` | Admin | Assegna/aggiorna ruolo |
-| `DELETE` | `/projects/{id}/permissions/{user_id}` | Admin | Revoca accesso |
-| `GET` | `/projects/{id}/permissions` | Viewer+ | Lista collaboratori |
+| Method | URL | Authorization | Description |
+|--------|-----|---------------|-------------|
+| `POST` | `/projects/{id}/permissions` | Admin | Assign or update a role |
+| `DELETE` | `/projects/{id}/permissions/{user_id}` | Admin | Revoke access |
+| `GET` | `/projects/{id}/permissions` | Viewer+ | List collaborators |
 
-### Autenticazione (dev/test)
+All protected endpoints require a JWT in the `Authorization` header:
 
-Passare l'ObjectId dell'utente nell'header `X-User-Id`:
-
-Example:
 ```
-X-User-Id: 507f1f77bcf86cd799439011
+Authorization: Bearer <token>
+```
+
+Obtain a token via `POST /auth/login` (see Authentication section).
+
+---
+
+## Authentication (Issue #20)
+
+Username/password login with bcrypt-hashed passwords and JWT session tokens.
+
+### Environment variables
+
+Add to `.env` (see `.env.example`):
+
+```
+SECRET_KEY=<long-random-string>   # used to sign JWTs — never commit this
+JWT_ALGORITHM=HS256               # default, can be omitted
+JWT_EXPIRATION_MINUTES=1440       # 24 h default, can be omitted
+```
+
+### Auth endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/register` | Create account — body: `{email, password, first_name, last_name, department}` |
+| `POST` | `/auth/login` | Get JWT — body: `{email, password}` — returns `{access_token, token_type, user}` |
+
+`hashed_password` is never returned in any response.
+
+### Seed credentials
+
+The seed creates a fixed admin account and 50 regular accounts. All share password `password`. Sample emails are printed in `seed/seed_output.txt` after each run.
+
+| Email | Role |
+|-------|------|
+| `admin@opentex.org` | Admin |
+| _(see seed_output.txt)_ | Regular users |
+
+### Verify auth
+
+```bash
+python -m tests.test_auth_api
 ```
 
 ---
 
-## Frontend — Dashboard UI (Issue #6)
+## Frontend — Dashboard UI (Issues #6 + #20)
 
-React + Vite dashboard per la gestione dei progetti. Richiede Node.js >= 18.
-
-### Avvio frontend (sviluppo)
+React + Vite dashboard. Included in Docker Compose — no separate `npm` step needed.
 
 ```bash
-cd frontend
-npm install      # solo la prima volta
-npm run dev
+docker compose up --build -d
+# frontend available at http://localhost:5173
 ```
 
-L'app sarà disponibile su **http://localhost:5173** e si connette automaticamente al backend su `http://localhost:8000` tramite il dev proxy di Vite.
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/docs |
 
-> Il backend deve essere in esecuzione prima di avviare il frontend.
+### Features
 
-### Funzionalità
+- **Login / Register**: email + password form with toggle between sign-in and registration
+- **Dashboard "My Projects"**: owned projects + "Shared with me" section
+- **Create project**: modal form with title, abstract, and tags
+- **Edit / Delete project**: Editor role or above; delete owner-only with confirmation
+- **Collaborator management**: assign/revoke Admin / Editor / Viewer roles (owner only)
 
-- **Login minimale**: selezione utente dalla lista degli utenti seedati
-- **Dashboard "I miei progetti"**: lista dei progetti di cui si è owner, con sezione "Shared with me" per i progetti condivisi
-- **Creazione progetto**: form modale con titolo, abstract e tag (separati da virgola)
-- **Modifica progetto**: aggiornamento di titolo, abstract e tag (richiede ruolo Editor o superiore)
-- **Eliminazione progetto**: solo per l'owner, con conferma
-- **Gestione collaboratori**: assegnazione/revoca ruoli (Admin / Editor / Viewer) — visibile solo all'owner
+### Backend user endpoints
 
-### Endpoint aggiunto al backend
-
-| Metodo | URL | Descrizione |
+| Method | URL | Description |
 |--------|-----|-------------|
-| `GET` | `/users/` | Lista tutti gli utenti (per il login picker) |
-| `GET` | `/users/{id}` | Dettaglio di un singolo utente |
+| `GET` | `/users/` | List all users |
+| `GET` | `/users/{id}` | Get single user |
 
 ---
 
