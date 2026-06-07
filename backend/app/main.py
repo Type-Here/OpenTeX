@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.database import ping_database
+from app.database import get_database, ping_database
+from app.routers.auth import router as auth_router
 from app.routers.stats import router as stats_router
 from app.routers.permissions import router as permissions_router
 from app.routers.projects import router as projects_router
@@ -32,6 +33,10 @@ async def lifespan(app: FastAPI):
     ok = await ping_database()
     if not ok:
         logger.warning("MongoDB non raggiungibile all'avvio — verificare la connessione.")
+    else:
+        db = get_database()
+        await db["users"].create_index("email", unique=True)
+        logger.info("Unique index on users.email ensured.")
     yield
     logger.info("OpenTeX backend shutdown.")
 
@@ -57,6 +62,7 @@ app.add_middleware(
 )
 
 
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(stats_router, prefix="/stats", tags=["stats"])
 
 @app.exception_handler(HTTPException)
