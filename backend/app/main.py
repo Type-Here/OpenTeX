@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import get_database, ping_database
 from app.routers.auth import router as auth_router
+from app.routers.compile import router as compile_router
+from app.routers.files import router as files_router
 from app.routers.stats import router as stats_router
 from app.routers.permissions import router as permissions_router
 from app.routers.projects import router as projects_router
@@ -74,8 +76,10 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 
 app.include_router(users_router, prefix="/users", tags=["users"])
+app.include_router(files_router, prefix="/files", tags=["files"])
 app.include_router(projects_router, prefix="/projects", tags=["projects"])
 app.include_router(permissions_router, prefix="/projects", tags=["permissions"])
+app.include_router(compile_router, prefix="/projects", tags=["compile"])
 
 
 @app.get("/health", tags=["system"])
