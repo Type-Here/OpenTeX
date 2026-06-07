@@ -11,8 +11,11 @@ from pathlib import Path
 from bson import ObjectId
 from dotenv import load_dotenv
 from faker import Faker
+import bcrypt
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, ConnectionFailure, PyMongoError
+
+_SEED_PASSWORD_HASH = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
 
 # Aggiunge il repo root a sys.path per importare il package db/
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -151,8 +154,21 @@ def check_existing_data(db) -> None:
 # ---------------------------------------------------------------------------
 
 
+ADMIN_USER: dict = {
+    "_id": ObjectId("000000000000000000000001"),
+    "first_name": "Admin",
+    "last_name": "OpenTeX",
+    "email": "admin@opentex.org",
+    "hashed_password": _SEED_PASSWORD_HASH,
+    "department": "Informatica",
+    "is_admin": True,
+    "created_at": datetime(2024, 1, 1),
+    "preferences": {"language": "en", "theme": "dark"},
+}
+
+
 def generate_users(n: int, fake: Faker) -> list[dict]:
-    """Genera n utenti sintetici."""
+    """Generate n synthetic non-admin users. All use password 'password'."""
     users = []
     for _ in range(n):
         users.append(
@@ -161,7 +177,9 @@ def generate_users(n: int, fake: Faker) -> list[dict]:
                 "first_name": fake.first_name(),
                 "last_name": fake.last_name(),
                 "email": fake.unique.email(),
+                "hashed_password": _SEED_PASSWORD_HASH,
                 "department": random.choice(DEPARTMENTS),
+                "is_admin": False,
                 "created_at": fake.date_time_between(start_date="-2y", end_date="-1d"),
                 "preferences": {
                     "language": random.choice(["it", "en"]),
@@ -402,7 +420,7 @@ def insert_batch(collection, documents: list[dict], batch_size: int = 500) -> in
 # ---------------------------------------------------------------------------
 
 
-def write_summary(counts: dict, elapsed: float) -> None:
+def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> None:
     """Stampa il riepilogo su stdout e lo salva in seed_output.txt."""
     lines = [
         "=== OpenTeX Seed completato ===",
@@ -412,7 +430,12 @@ def write_summary(counts: dict, elapsed: float) -> None:
         f"{'permissions':<20} inseriti: {counts['permissions']:>6}",
         f"{'activity_logs':<20} inseriti: {counts['activity_logs']:>6}",
         f"Tempo totale: {elapsed:.1f}s",
+        "",
+        "--- Sample credentials (password: 'password') ---",
     ]
+    for u in sample_users:
+        admin_tag = " [ADMIN]" if u.get("is_admin") else ""
+        lines.append(f"  {u['email']}{admin_tag}")
     summary = "\n".join(lines)
     print(summary)
 
@@ -457,7 +480,7 @@ def main() -> None:
     )
     t0 = time.perf_counter()
 
-    users = generate_users(args.users, fake)
+    users = [ADMIN_USER] + generate_users(args.users, fake)
     projects = generate_projects(args.projects, users, fake)
     permissions, project_permissions_map = generate_permissions(projects, users, fake)
     files = generate_files(projects, project_permissions_map, fake)
@@ -476,7 +499,7 @@ def main() -> None:
 
     elapsed = time.perf_counter() - t0
     print()
-    write_summary(counts, elapsed)
+    write_summary(counts, elapsed, sample_users=users[:5])
 
 
 if __name__ == "__main__":
