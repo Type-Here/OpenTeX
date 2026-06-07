@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     mongo_uri: str
     mongo_db: str
     secret_key: str
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_minutes: int = 1440
     debug: bool = False
 
     class Config:

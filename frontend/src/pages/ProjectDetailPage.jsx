@@ -47,7 +47,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
     }
   }
 
-  const isOwner = project && project.owner_id === user.user_id
+  const isOwner = project && project.owner_id === user.id
 
   if (loading) return <div className={styles.page}><p className={styles.message}>Loading…</p></div>
   if (error) return (
@@ -88,7 +88,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
         </div>
 
         {isOwner && (
-          <PermissionsPanel projectId={projectId} ownerId={user.user_id} />
+          <PermissionsPanel projectId={projectId} ownerId={user.id} />
         )}
       </main>
 

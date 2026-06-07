@@ -18,8 +18,8 @@ export default function DashboardPage({ onOpenProject, onNavigate }) {
     setError(null)
     try {
       const [owned, shared] = await Promise.all([
-        listProjects({ owner_id: user.user_id }),
-        listProjects({ member_id: user.user_id }),
+        listProjects({ owner_id: user.id }),
+        listProjects({ member_id: user.id }),
       ])
       setMyProjects(owned)
       setSharedProjects(shared)

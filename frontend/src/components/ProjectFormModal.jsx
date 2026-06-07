@@ -25,7 +25,7 @@ export default function ProjectFormModal({ mode, project, onClose, onSaved }) {
           title,
           abstract,
           tags: parseTags(tags),
-          owner_id: user.user_id,
+          owner_id: user.id,
         })
       } else {
         result = await updateProject(project.id, {
