@@ -1,20 +1,31 @@
-from bson import ObjectId
 from fastapi import Header, HTTPException
 
-from app.database import get_database
+from app.security import decode_access_token
 
 
-async def get_current_user(x_user_id: str = Header(...)) -> str:
-    if not ObjectId.is_valid(x_user_id):
-        raise HTTPException(status_code=401, detail="X-User-Id must be a valid ObjectId")
-    return x_user_id
+def _extract_user_id(authorization: str) -> str:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header must be 'Bearer <token>'")
+    token = authorization[len("Bearer "):]
+    payload = decode_access_token(token)
+    user_id: str | None = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return user_id
 
 
-async def get_admin_user(x_user_id: str = Header(...)) -> str:
-    if not ObjectId.is_valid(x_user_id):
-        raise HTTPException(status_code=401, detail="X-User-Id must be a valid ObjectId")
-    db = get_database()
-    user = await db["users"].find_one({"_id": ObjectId(x_user_id)})
-    if user is None or not user.get("is_admin", False):
+async def get_current_user(authorization: str = Header(...)) -> str:
+    return _extract_user_id(authorization)
+
+
+async def get_admin_user(authorization: str = Header(...)) -> str:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header must be 'Bearer <token>'")
+    token = authorization[len("Bearer "):]
+    payload = decode_access_token(token)
+    user_id: str | None = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    if not payload.get("is_admin", False):
         raise HTTPException(status_code=403, detail="Admin access required")
-    return x_user_id
+    return user_id
