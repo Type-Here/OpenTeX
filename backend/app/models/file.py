@@ -4,6 +4,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class FileUpdate(BaseModel):
+    content: str
+
+
 class FileResponse(BaseModel):
     id: str
     project_id: str

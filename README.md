@@ -283,6 +283,46 @@ python -m tests.test_auth_api
 
 ---
 
+## LaTeX compilation (Issue #21)
+
+Compiles a project's `.tex` and `.bib` sources into a PDF using [Tectonic](https://tectonic-typesetting.github.io). Tectonic is installed as a static binary in the backend Docker image — no local TeX installation required.
+
+Shell escape (`\write18`) is disabled by default in Tectonic. Each compilation job runs in an isolated temporary directory (deleted after the request completes). At most 2 jobs run in parallel; excess requests are queued. A hard 60 s timeout is enforced per job.
+
+### Endpoints
+
+| Method | Path | Authorization | Description |
+|--------|------|--------------|-------------|
+| `POST` | `/projects/{id}/compile` | Viewer+ | Compile sources → PDF or error log |
+| `PUT` | `/files/{id}` | Editor+ | Save edited file content |
+
+### Compile response
+
+- **Success** — `200 application/pdf`, PDF returned as binary attachment
+- **Failure** — `422` with JSON body `{"error": "Compilation failed", "log": "..."}` containing the Tectonic log
+- **Timeout** — `504` if compilation exceeds 60 s
+
+### Example
+
+```bash
+# Compile a project (token required)
+curl -X POST http://localhost:8000/projects/<project_id>/compile \
+  -H "Authorization: Bearer <token>" \
+  --output result.pdf
+
+# Save edited file content (Editor role required)
+curl -X PUT http://localhost:8000/files/<file_id> \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "\\documentclass{article}\\begin{document}Hello\\end{document}"}'
+```
+
+### Entry point selection
+
+The compiler looks for `main.tex` as the entry point. If not found, it falls back to the first `.tex` file alphabetically. Only files with `file_type` of `tex` or `bib` are passed to the compiler.
+
+---
+
 ## Frontend — Dashboard UI (Issues #6 + #20)
 
 React + Vite dashboard. Included in Docker Compose — no separate `npm` step needed.
