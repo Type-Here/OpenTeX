@@ -1,74 +1,134 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getUsers } from '../api/users'
+import { loginUser, registerUser } from '../api/auth'
 import styles from '../styles/LoginPage.module.css'
 
 export default function LoginPage({ onLogin }) {
   const { login } = useAuth()
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [mode, setMode] = useState('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [department, setDepartment] = useState('')
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    getUsers()
-      .then(setUsers)
-      .catch(() => setError('Cannot load users. Make sure the backend is running.'))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const handleSelect = (u) => {
-    login({ user_id: u.id, first_name: u.first_name, last_name: u.last_name, email: u.email, is_admin: u.is_admin })
-    onLogin()
+  const switchMode = (next) => {
+    setMode(next)
+    setError(null)
   }
 
-  const filtered = users.filter(
-    (u) =>
-      `${u.first_name} ${u.last_name} ${u.email} ${u.department}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-  )
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      if (mode === 'login') {
+        const data = await loginUser(email, password)
+        login(data)
+        onLogin()
+      } else {
+        await registerUser({ email, password, first_name: firstName, last_name: lastName, department })
+        const data = await loginUser(email, password)
+        login(data)
+        onLogin()
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setError(detail || (mode === 'login' ? 'Login failed. Check your credentials.' : 'Registration failed.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isLogin = mode === 'login'
 
   return (
     <div className={styles.page}>
       <div className={styles.card}>
         <h1 className={styles.title}>OpenTeX</h1>
-        <p className={styles.subtitle}>Select your account to continue</p>
+        <p className={styles.subtitle}>{isLogin ? 'Sign in to your account' : 'Create a new account'}</p>
 
-        {loading && <p className={styles.message}>Loading users…</p>}
         {error && <p className={styles.error}>{error}</p>}
 
-        {!loading && !error && (
-          <>
+        <form className={styles.form} onSubmit={handleSubmit}>
+          {!isLogin && (
+            <>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="firstName">First name</label>
+                <input
+                  id="firstName"
+                  className={styles.input}
+                  type="text"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="lastName">Last name</label>
+                <input
+                  id="lastName"
+                  className={styles.input}
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="department">Department</label>
+                <input
+                  id="department"
+                  className={styles.input}
+                  type="text"
+                  required
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="email">Email</label>
             <input
-              className={styles.search}
-              type="text"
-              placeholder="Search by name, email or department…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              id="email"
+              className={styles.input}
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            {filtered.length === 0 ? (
-              <p className={styles.message}>No users match your search.</p>
-            ) : (
-              <ul className={styles.list}>
-                {filtered.map((u) => (
-                  <li key={u.id}>
-                    <button className={styles.userBtn} onClick={() => handleSelect(u)}>
-                      <span className={styles.avatar}>
-                        {u.first_name[0]}{u.last_name[0]}
-                      </span>
-                      <span className={styles.userInfo}>
-                        <strong>{u.first_name} {u.last_name}</strong>
-                        <span>{u.email}</span>
-                        <span className={styles.dept}>{u.department}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="password">Password</label>
+            <input
+              id="password"
+              className={styles.input}
+              type="password"
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <button className={styles.submitBtn} type="submit" disabled={loading}>
+            {loading ? (isLogin ? 'Signing in...' : 'Registering...') : (isLogin ? 'Sign in' : 'Register')}
+          </button>
+        </form>
+
+        <p className={styles.switchText}>
+          {isLogin ? "Don't have an account?" : 'Already have an account?'}
+          {' '}
+          <button className={styles.switchBtn} onClick={() => switchMode(isLogin ? 'register' : 'login')}>
+            {isLogin ? 'Register' : 'Sign in'}
+          </button>
+        </p>
       </div>
     </div>
   )
