@@ -13,7 +13,7 @@ function formatDate(iso) {
   })
 }
 
-export default function ProjectDetailPage({ projectId, onBack }) {
+export default function ProjectDetailPage({ projectId, onBack, onOpenEditor }) {
   const { user } = useAuth()
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -62,6 +62,9 @@ export default function ProjectDetailPage({ projectId, onBack }) {
       <header className={styles.header}>
         <button className={styles.backBtn} onClick={onBack}>← Back</button>
         <div className={styles.actions}>
+          <button className={styles.editorBtn} onClick={() => onOpenEditor(project)}>
+            Open Editor
+          </button>
           {isOwner && (
             <>
               <button className={styles.editBtn} onClick={() => setShowEdit(true)}>Edit</button>

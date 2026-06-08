@@ -355,6 +355,49 @@ docker compose up --build -d
 
 ---
 
+## Editor UI (Issue #22)
+
+Multi-pane LaTeX editor built into the frontend. No extra services needed — it runs inside the same React app.
+
+### Access
+
+1. Log in and open a project from the dashboard.
+2. Click **Open Editor** on the project detail page.
+
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ← Back   Project Title          [Save]  [Compile]       │
+├──────────┬───────────────────────────────────────────────┤
+│  Files   │                                               │
+│ ──────── │          CodeMirror editor                    │
+│ main.tex │          (LaTeX syntax highlighting)          │
+│ refs.bib │                                               │
+│          ├───────────────────────────────────────────────┤
+│          │  [compile error log, if any]                  │
+├──────────┴───────────────────────────────────────────────┤
+│  Status bar — save feedback / current file               │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Features
+
+- **File sidebar**: lists all project files. `.tex` and `.bib` files are selectable and editable; images and PDFs are shown but not interactive.
+- **CodeMirror 6 editor**: LaTeX syntax highlighting, line numbers, keyboard navigation.
+- **Save** (`Ctrl+S` / `Cmd+S` or the Save button): sends `PUT /files/{id}` with the current content. A status bar at the bottom confirms success or shows an error.
+- **Compile**: sends `POST /projects/{id}/compile`. On success the PDF is downloaded automatically. On failure the Tectonic error log appears in a panel below the editor.
+
+### Role requirements
+
+| Action | Minimum role |
+|--------|-------------|
+| Open editor / list files | Viewer |
+| Save file content | Editor |
+| Compile project | Viewer |
+
+---
+
 ## Local environment (conda/mamba)
 
 Use the provided `environment.yml` for a consistent Python runtime suitable for FastAPI, Motor, and MongoDB tooling.

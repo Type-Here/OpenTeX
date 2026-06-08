@@ -44,3 +44,17 @@ async def update_file_content(
         return_document=True,
     )
     return FileResponse.from_mongo(updated)
+
+
+@router.delete("/{file_id}", status_code=204)
+async def delete_file(
+    file_id: str,
+    current_user: str = Depends(get_current_user),
+):
+    db = get_database()
+    doc = await db[_FILES].find_one({"_id": _oid(file_id)})
+    if doc is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    project_id = str(doc["project_id"])
+    await permissions_service.require_access(db, current_user, project_id, Role.EDITOR)
+    await db[_FILES].delete_one({"_id": doc["_id"]})

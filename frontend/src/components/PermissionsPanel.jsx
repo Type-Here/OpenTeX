@@ -3,7 +3,7 @@ import { getUsers } from '../api/users'
 import { listPermissions, assignPermission, revokePermission } from '../api/permissions'
 import styles from '../styles/PermissionsPanel.module.css'
 
-const ROLES = ['admin', 'editor', 'viewer']
+const ROLES = ['Admin', 'Editor', 'Viewer']
 
 export default function PermissionsPanel({ projectId, ownerId }) {
   const [permissions, setPermissions] = useState([])
@@ -11,7 +11,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedUser, setSelectedUser] = useState('')
-  const [selectedRole, setSelectedRole] = useState('editor')
+  const [selectedRole, setSelectedRole] = useState('Editor')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -44,7 +44,10 @@ export default function PermissionsPanel({ projectId, ownerId }) {
       setSelectedUser('')
       await loadData()
     } catch (err) {
-      setSaveError(err.response?.data?.detail ?? 'Failed to assign permission.')
+      const detail = err.response?.data?.detail
+      if (typeof detail === 'string') setSaveError(detail)
+      else if (Array.isArray(detail)) setSaveError(detail.map(d => d.msg).join('; '))
+      else setSaveError('Failed to assign permission.')
     } finally {
       setSaving(false)
     }

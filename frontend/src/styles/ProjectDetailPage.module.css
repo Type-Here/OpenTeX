@@ -35,6 +35,21 @@
   gap: 10px;
 }
 
+.editorBtn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editorBtn:hover {
+  opacity: 0.85;
+}
+
 .editBtn {
   background: var(--surface);
   border: 1px solid var(--border);

@@ -9,6 +9,7 @@ export default defineConfig({
       '/auth':     'http://backend:8000',
       '/users':    'http://backend:8000',
       '/projects': 'http://backend:8000',
+      '/files':    'http://backend:8000',
       '/stats':    'http://backend:8000',
     },
   },

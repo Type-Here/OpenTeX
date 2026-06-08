@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import EditorPage from './pages/EditorPage'
 import StatsPage from './pages/StatsPage'
 import BenchmarksPage from './pages/BenchmarksPage'
 
@@ -18,11 +19,24 @@ export default function App() {
     return <LoginPage onLogin={() => navigate('dashboard')} />
   }
 
+  if (view.page === 'editor') {
+    return (
+      <EditorPage
+        projectId={view.projectId}
+        projectTitle={view.projectTitle}
+        onBack={() => navigate('detail', { projectId: view.projectId })}
+      />
+    )
+  }
+
   if (view.page === 'detail') {
     return (
       <ProjectDetailPage
         projectId={view.projectId}
         onBack={() => navigate('dashboard')}
+        onOpenEditor={(project) =>
+          navigate('editor', { projectId: project.id, projectTitle: project.title })
+        }
       />
     )
   }
