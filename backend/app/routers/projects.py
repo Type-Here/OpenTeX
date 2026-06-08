@@ -8,7 +8,7 @@ from pymongo import ReturnDocument
 
 from app.database import get_database
 from app.dependencies import get_current_user
-from app.models.file import FileResponse
+from app.models.file import FileCreate, FileResponse
 from app.models.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.models.permissions import Role
 from app.services import permissions_service
@@ -129,3 +129,44 @@ async def list_project_files(
     await permissions_service.require_access(db, current_user, project_id, Role.VIEWER)
     cursor = db[_FILES].find({"project_id": oid})
     return [FileResponse.from_mongo(doc) async for doc in cursor]
+
+
+@router.post("/{project_id}/files", response_model=FileResponse, status_code=201)
+async def create_project_file(
+    project_id: str,
+    body: FileCreate,
+    current_user: str = Depends(get_current_user),
+):
+    db = get_database()
+    oid = _oid(project_id)
+    if await db[_PROJECTS].find_one({"_id": oid}) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await permissions_service.require_access(db, current_user, project_id, Role.EDITOR)
+    existing = await db[_FILES].find_one({"project_id": oid, "filename": body.filename})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"File '{body.filename}' already exists in this project")
+    if body.file_type == "tex":
+        initial_content = (
+            "\\documentclass{article}\n\n"
+            "\\title{" + body.filename.removesuffix(".tex") + "}\n"
+            "\\author{}\n"
+            "\\date{\\today}\n\n"
+            "\\begin{document}\n\n"
+            "\\maketitle\n\n"
+            "\\section{Introduction}\n"
+            "Start writing here.\n\n"
+            "\\end{document}\n"
+        )
+    else:
+        initial_content = ""
+
+    doc = {
+        "project_id": oid,
+        "filename": body.filename,
+        "file_type": body.file_type,
+        "content": initial_content,
+        "created_at": datetime.now(timezone.utc),
+    }
+    result = await db[_FILES].insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return FileResponse.from_mongo(doc)
