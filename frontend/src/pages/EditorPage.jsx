@@ -24,6 +24,7 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
   const [saveResult, setSaveResult] = useState(null)
   const [compiling, setCompiling] = useState(false)
   const [compileError, setCompileError] = useState(null)
+  const [pdfUrl, setPdfUrl] = useState(null)
   const [showNewFile, setShowNewFile] = useState(false)
   const [newFilename, setNewFilename] = useState('')
   const [newFileType, setNewFileType] = useState('tex')
@@ -45,6 +46,8 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
       .catch(() => setFilesError('Failed to load project files.'))
       .finally(() => setLoadingFiles(false))
   }, [projectId])
+
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl) }, [pdfUrl])
 
   useEffect(() => {
     const handler = (e) => {
@@ -94,20 +97,15 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
   const handleCompile = async () => {
     setCompiling(true)
     setCompileError(null)
+    if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }
     const response = await compileProject(projectId)
     if (response.status === 200) {
       const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${projectTitle}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      setPdfUrl(URL.createObjectURL(blob))
     } else {
       try {
-        const text = new TextDecoder().decode(response.data)
-        const body = JSON.parse(text)
-        setCompileError(body.log ?? body.error ?? body.detail ?? `Error ${response.status}`)
+        const body = JSON.parse(new TextDecoder().decode(response.data))
+        setCompileError(body.detail?.log ?? body.detail?.error ?? body.detail ?? `Error ${response.status}`)
       } catch {
         setCompileError(`Server error ${response.status}`)
       }
@@ -286,16 +284,34 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
             />
           )}
 
-          {compileError && (
-            <div className={styles.compileErrorPanel}>
-              <div className={styles.compileErrorHeader}>
-                <span>Compile Error</span>
-                <button className={styles.dismissBtn} onClick={() => setCompileError(null)}>✕</button>
-              </div>
-              <pre className={styles.compileErrorLog}>{compileError}</pre>
-            </div>
-          )}
         </div>
+
+        {(pdfUrl || compileError) && (
+          <div className={styles.previewPane}>
+            <div className={styles.previewHeader}>
+              <span>Preview</span>
+              <div className={styles.previewActions}>
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    download={`${projectTitle}.pdf`}
+                    className={styles.downloadBtn}
+                    title="Download PDF"
+                  >↓</a>
+                )}
+                <button
+                  className={styles.dismissBtn}
+                  onClick={() => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); setCompileError(null) }}
+                  title="Close preview"
+                >✕</button>
+              </div>
+            </div>
+            {pdfUrl
+              ? <iframe src={pdfUrl} className={styles.pdfFrame} title="Compiled PDF" />
+              : <pre className={styles.previewErrorBody}>{compileError}</pre>
+            }
+          </div>
+        )}
       </div>
 
       <div className={styles.statusBar}>

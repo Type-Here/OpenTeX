@@ -321,7 +321,7 @@
 .dismissBtn {
   background: transparent;
   border: none;
-  color: #f87171;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   cursor: pointer;
   line-height: 1;
@@ -365,4 +365,69 @@
 
 .errorMsg {
   color: var(--accent);
+}
+
+.previewPane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e2e4e9;
+  overflow: hidden;
+}
+
+.previewHeader {
+  height: 32px;
+  background: var(--primary);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.previewActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.downloadBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+  text-decoration: none;
+}
+
+.downloadBtn:hover {
+  color: #fff;
+}
+
+.pdfFrame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  display: block;
+  background: #525659;
+}
+
+.previewErrorBody {
+  flex: 1;
+  overflow-y: auto;
+  background: #1a1a2e;
+  color: #f87171;
+  padding: 10px 14px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
 }
