@@ -367,18 +367,17 @@ Multi-pane LaTeX editor built into the frontend. No extra services needed — it
 ### Layout
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  ← Back   Project Title          [Save]  [Compile]       │
-├──────────┬───────────────────────────────────────────────┤
-│  Files   │                                               │
-│ ──────── │          CodeMirror editor                    │
-│ main.tex │          (LaTeX syntax highlighting)          │
-│ refs.bib │                                               │
-│          ├───────────────────────────────────────────────┤
-│          │  [compile error log, if any]                  │
-├──────────┴───────────────────────────────────────────────┤
-│  Status bar — save feedback / current file               │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  ← Back   Project Title               [Save]  [Compile]             │
+├──────────┬──────────────────────────┬──────────────────────────────┤
+│  Files   │                          │  Preview                  [↓][×]│
+│ ──────── │   CodeMirror editor      ├──────────────────────────────┤
+│ main.tex │   (LaTeX highlighting)   │                              │
+│ refs.bib │                          │      PDF / error log         │
+│          │                          │                              │
+├──────────┴──────────────────────────┴──────────────────────────────┤
+│  Status bar — save feedback / current file                          │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Features
@@ -386,7 +385,7 @@ Multi-pane LaTeX editor built into the frontend. No extra services needed — it
 - **File sidebar**: lists all project files. `.tex` and `.bib` files are selectable and editable; images and PDFs are shown but not interactive.
 - **CodeMirror 6 editor**: LaTeX syntax highlighting, line numbers, keyboard navigation.
 - **Save** (`Ctrl+S` / `Cmd+S` or the Save button): sends `PUT /files/{id}` with the current content. A status bar at the bottom confirms success or shows an error.
-- **Compile**: sends `POST /projects/{id}/compile`. On success the PDF is downloaded automatically. On failure the Tectonic error log appears in a panel below the editor.
+- **Compile**: sends `POST /projects/{id}/compile`. On success the compiled PDF opens in the preview pane (see Issue #23). On failure the Tectonic error log appears in the preview pane instead.
 
 ### Role requirements
 
@@ -395,6 +394,23 @@ Multi-pane LaTeX editor built into the frontend. No extra services needed — it
 | Open editor / list files | Viewer |
 | Save file content | Editor |
 | Compile project | Viewer |
+
+---
+
+## PDF Preview (Issue #23)
+
+After clicking **Compile**, the result appears in a pane to the right of the editor — no page reload needed.
+
+### Behaviour
+
+| Compile result | Preview pane shows |
+|---|---|
+| Success (HTTP 200) | Rendered PDF via `<iframe>` |
+| Failure (HTTP 422) | Tectonic error log in red monospace text |
+
+- **↓ button**: downloads the PDF as `<project-name>.pdf` (correct filename, unlike the browser's native PDF viewer download arrow which saves as `unknown.pdf`).
+- **× button**: closes the preview pane and clears the result.
+- Re-compiling always replaces the previous result; the old blob URL is revoked to free memory.
 
 ---
 
