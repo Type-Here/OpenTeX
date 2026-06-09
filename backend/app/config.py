@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Configurazione applicazione caricata dall'ambiente / file .env."""
+    """Application settings loaded from environment / .env file."""
 
     mongo_uri: str
     mongo_db: str

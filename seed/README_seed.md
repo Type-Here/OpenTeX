@@ -1,52 +1,52 @@
-## Seed — Generatore dati sintetici
+## Seed — Synthetic data generator
 
-### Dipendenze
+### Dependencies
 ```bash
 pip install -r seed/requirements.txt
 ```
 
-### Configurazione
-Copia `.env.example` in `.env` e imposta `MONGO_URI`:
+### Configuration
+Copy `.env.example` to `.env` and set `MONGO_URI`:
 ```
 MONGO_URI=mongodb://localhost:27017
 ```
 
-### Esecuzione (default: 50 utenti, 100 progetti, 30 000 log)
+### Run with defaults (50 users, 100 projects, 30 000 logs)
 ```bash
 python seed/seed.py
 ```
 
-### Esecuzione con parametri custom
+### Run with custom parameters
 ```bash
 python seed/seed.py --users 100 --projects 200 --logs 50000 --drop
 ```
 
-### Argomenti disponibili
-| Argomento    | Tipo  | Default                         | Descrizione                              |
-|--------------|-------|---------------------------------|------------------------------------------|
-| `--users`    | int   | 50                              | Numero di utenti da generare             |
-| `--projects` | int   | 100                             | Numero di progetti da generare           |
-| `--logs`     | int   | 30000                           | Numero di activity_logs                  |
-| `--drop`     | flag  | —                               | Droppa le collezioni prima di inserire   |
-| `--uri`      | str   | `MONGO_URI` env o localhost     | URI MongoDB                              |
-| `--db`       | str   | `opentex`                       | Nome del database                        |
+### Available arguments
+| Argument     | Type  | Default                         | Description                                      |
+|--------------|-------|---------------------------------|--------------------------------------------------|
+| `--users`    | int   | 50                              | Number of users to generate                      |
+| `--projects` | int   | 100                             | Number of projects to generate                   |
+| `--logs`     | int   | 30000                           | Number of activity_logs                          |
+| `--drop`     | flag  | —                               | Drop collections before inserting                |
+| `--uri`      | str   | `MONGO_URI` env or localhost    | MongoDB URI                                      |
+| `--db`       | str   | `opentex`                       | Database name                                    |
 
-### Output atteso
-Lo script stampa il conteggio dei record inseriti per collezione:
+### Expected output
+The script prints the inserted record count per collection:
 ```
-=== OpenTeX Seed completato ===
-users                inseriti:     50
-projects             inseriti:    100
-files                inseriti:    347
-permissions          inseriti:    213
-activity_logs        inseriti:  30000
-Tempo totale: 4.2s
+=== OpenTeX Seed completed ===
+users                inserted:     50
+projects             inserted:    100
+files                inserted:    347
+permissions          inserted:    213
+activity_logs        inserted:  30000
+Total time: 4.2s
 ```
-Il file `seed/seed_output.txt` contiene l'output dell'ultima esecuzione.
+The file `seed/seed_output.txt` contains the output of the last run.
 
-### Note
-- Se le collezioni hanno già dati e `--drop` non è specificato, lo script chiede conferma interattiva.
-- Prima di eseguire il seed su un DB con i validator attivi, ri-applicare i validator aggiornati:
+### Notes
+- If collections already contain data and `--drop` is not specified, the script asks for interactive confirmation.
+- Before running the seed on a DB with active validators, re-apply the updated validators:
   ```bash
   python -m scripts.validation.apply_schema_validation
   ```

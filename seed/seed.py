@@ -1,4 +1,4 @@
-"""Generatore di dati sintetici per OpenTeX — 5 collezioni MongoDB."""
+"""Synthetic data generator for OpenTeX — 5 MongoDB collections."""
 
 import argparse
 import os
@@ -17,7 +17,7 @@ from pymongo.errors import BulkWriteError, ConnectionFailure, PyMongoError
 
 _SEED_PASSWORD_HASH = bcrypt.hashpw(b"password", bcrypt.gensalt()).decode()
 
-# Aggiunge il repo root a sys.path per importare il package db/
+# Add repo root to sys.path so the db/ package can be imported
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db.collection_definitions import (
@@ -36,11 +36,17 @@ from db.collection_definitions import (
 
 DEPARTMENTS = [
     "Informatica",
-    "Fisica",
-    "Matematica",
-    "Chimica",
     "Ingegneria",
+    "Matematica",
+    "Fisica",
+    "Chimica",
     "Biologia",
+    "Medicina",
+    "Economia",
+    "Giurisprudenza",
+    "Lettere e Filosofia",
+    "Scienze Politiche",
+    "Psicologia",
 ]
 
 LATEX_TAGS = [
@@ -60,7 +66,7 @@ LATEX_TAGS = [
     "relazione",
 ]
 
-# Nomi file tipici per tipo
+# Typical filenames by type
 _FILE_NAMES: dict[str, list[str]] = {
     "tex": ["main.tex", "capitolo1.tex", "capitolo2.tex", "appendice.tex", "intro.tex"],
     "bib": ["bibliography.bib", "references.bib", "sources.bib"],
@@ -75,82 +81,82 @@ _FILE_NAMES: dict[str, list[str]] = {
 
 
 def parse_args() -> argparse.Namespace:
-    """Parsea gli argomenti da riga di comando."""
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Genera dati sintetici e li carica nelle 5 collezioni OpenTeX."
+        description="Generate synthetic data and load it into the 5 OpenTeX collections."
     )
-    parser.add_argument("--users", type=int, default=50, help="Numero di utenti (default: 50)")
+    parser.add_argument("--users", type=int, default=50, help="Number of users (default: 50)")
     parser.add_argument(
-        "--projects", type=int, default=100, help="Numero di progetti (default: 100)"
+        "--projects", type=int, default=100, help="Number of projects (default: 100)"
     )
     parser.add_argument(
-        "--logs", type=int, default=30000, help="Numero di activity_logs (default: 30000)"
+        "--logs", type=int, default=30000, help="Number of activity_logs (default: 30000)"
     )
     parser.add_argument(
         "--drop",
         action="store_true",
-        help="Droppa le collezioni prima di inserire",
+        help="Drop collections before inserting",
     )
     parser.add_argument(
         "--uri",
         type=str,
         default=None,
-        help="URI MongoDB (default: MONGO_URI env o mongodb://localhost:27017)",
+        help="MongoDB URI (default: MONGO_URI env or mongodb://localhost:27017)",
     )
     parser.add_argument(
         "--db",
         type=str,
         default=os.getenv("MONGO_DB") or os.getenv("OPENTEX_DB_NAME") or "opentex_db",
-        help="Nome del database (default: MONGO_DB env, poi OPENTEX_DB_NAME, poi opentex_db)",
+        help="Database name (default: MONGO_DB env, then OPENTEX_DB_NAME, then opentex_db)",
     )
     return parser.parse_args()
 
 
 # ---------------------------------------------------------------------------
-# Connessione DB
+# DB connection
 # ---------------------------------------------------------------------------
 
 
 def connect_db(uri: str, db_name: str):
-    """Crea il client MongoDB e verifica la connessione."""
+    """Create the MongoDB client and verify the connection."""
     try:
         client = MongoClient(uri, serverSelectionTimeoutMS=5000)
         client.admin.command("ping")
         return client[db_name]
     except ConnectionFailure as exc:
-        print(f"[ERRORE] Impossibile connettersi a MongoDB ({uri}): {exc}")
-        print("Verifica che MongoDB sia avviato e che l'URI sia corretto.")
+        print(f"[ERROR] Cannot connect to MongoDB ({uri}): {exc}")
+        print("Make sure MongoDB is running and the URI is correct.")
         sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
-# Gestione collezioni
+# Collection management
 # ---------------------------------------------------------------------------
 
 
 def maybe_drop_collections(db) -> None:
-    """Droppa tutte le collezioni OpenTeX."""
+    """Drop all OpenTeX collections."""
     for name in COLLECTION_NAMES:
         db[name].drop()
         print(f"  Dropped: {name}")
 
 
 def check_existing_data(db) -> None:
-    """Se ci sono dati esistenti, chiede conferma interattiva prima di procedere."""
+    """If collections already contain data, ask for interactive confirmation before proceeding."""
     counts = {name: db[name].count_documents({}) for name in COLLECTION_NAMES}
     if any(c > 0 for c in counts.values()):
-        print("\n[AVVISO] Le collezioni contengono già dati:")
+        print("\n[WARNING] Collections already contain data:")
         for name, count in counts.items():
             if count > 0:
-                print(f"  {name}: {count} documenti")
-        answer = input("\nProcedere comunque (i nuovi record verranno aggiunti)? [y/N] ")
+                print(f"  {name}: {count} documents")
+        answer = input("\nProceed anyway (new records will be added)? [y/N] ")
         if answer.strip().lower() != "y":
-            print("Operazione annullata.")
+            print("Operation cancelled.")
             sys.exit(0)
 
 
 # ---------------------------------------------------------------------------
-# Generatori
+# Generators
 # ---------------------------------------------------------------------------
 
 
@@ -191,7 +197,7 @@ def generate_users(n: int, fake: Faker) -> list[dict]:
 
 
 def generate_projects(n: int, users: list[dict], fake: Faker) -> list[dict]:
-    """Genera n progetti sintetici, ognuno con un owner tra gli utenti esistenti."""
+    """Generate n synthetic projects, each with an owner drawn from existing users."""
     projects = []
     for _ in range(n):
         created_at = fake.date_time_between(start_date="-1y", end_date="-1d")
@@ -217,11 +223,11 @@ def generate_permissions(
     projects: list[dict], users: list[dict], fake: Faker
 ) -> tuple[list[dict], dict]:
     """
-    Genera i permessi per ogni progetto.
+    Generate permissions for every project.
 
-    Restituisce (permissions_list, project_permissions_map) dove
-    project_permissions_map: {project_id: [user_id, ...]} con tutti gli utenti
-    che hanno accesso al progetto.
+    Returns (permissions_list, project_permissions_map) where
+    project_permissions_map: {project_id: [user_id, ...]} with all users
+    that have access to the project.
     """
     permissions = []
     project_permissions_map: dict = {}
@@ -233,7 +239,7 @@ def generate_permissions(
         owner_id = project["owner_id"]
         seen: set = {owner_id}
 
-        # L'owner è sempre Admin
+        # The owner is always Admin
         permissions.append(
             {
                 "_id": ObjectId(),
@@ -245,7 +251,7 @@ def generate_permissions(
             }
         )
 
-        # 0–3 collaboratori aggiuntivi (escluso owner)
+        # 0–3 additional collaborators (excluding owner)
         candidates = [uid for uid in user_ids if uid != owner_id]
         n_extra = random.randint(0, min(3, len(candidates)))
         for extra_uid in random.sample(candidates, k=n_extra):
@@ -277,10 +283,10 @@ def generate_files(
     fake: Faker,
 ) -> list[dict]:
     """
-    Genera 2-5 file per ogni progetto.
+    Generate 2–5 files per project.
 
-    Il primo file di ogni progetto è sempre un .tex (main.tex).
-    uploaded_by è sempre un utente con permesso sul progetto.
+    The first file of each project is always a .tex (main.tex).
+    uploaded_by is always a user with permission on the project.
     """
     files = []
     for project in projects:
@@ -297,7 +303,7 @@ def generate_files(
                 ftype = random.choice(FILE_TYPES)
                 candidates = _FILE_NAMES[ftype]
                 fname = random.choice(candidates)
-                # Evita duplicati nello stesso progetto
+                # Avoid duplicate filenames within the same project
                 suffix = 1
                 base_fname = fname
                 while fname in used_names:
@@ -341,11 +347,11 @@ def generate_activity_logs(
     fake: Faker,
 ) -> list[dict]:
     """
-    Genera n activity_logs distribuiti su tutti i progetti e utenti con permesso.
+    Generate n activity_logs distributed across all projects and users with permission.
 
-    resource_id punta a un documento esistente in memoria (file, permission o project).
+    resource_id points to an existing document in memory (file, permission, or project).
     """
-    # Indicizza per project_id
+    # Index by project_id
     files_by_project: dict = {}
     for f in files:
         files_by_project.setdefault(f["project_id"], []).append(f["_id"])
@@ -386,7 +392,7 @@ def generate_activity_logs(
                 "resource": resource,
                 "resource_id": resource_id,
                 "timestamp": timestamp,
-                "details": f"{action} su {resource} {resource_id}",
+                "details": f"{action} on {resource} {resource_id}",
             }
         )
 
@@ -394,12 +400,12 @@ def generate_activity_logs(
 
 
 # ---------------------------------------------------------------------------
-# Inserimento
+# Insertion
 # ---------------------------------------------------------------------------
 
 
 def insert_batch(collection, documents: list[dict], batch_size: int = 500) -> int:
-    """Inserisce documenti in batch; interrompe con sys.exit(1) in caso di errore."""
+    """Insert documents in batches; exit with sys.exit(1) on error."""
     total = 0
     for i in range(0, len(documents), batch_size):
         chunk = documents[i : i + batch_size]
@@ -407,10 +413,10 @@ def insert_batch(collection, documents: list[dict], batch_size: int = 500) -> in
             result = collection.insert_many(chunk, ordered=False)
             total += len(result.inserted_ids)
         except BulkWriteError as exc:
-            print(f"[ERRORE] BulkWriteError su {collection.name}: {exc.details}")
+            print(f"[ERROR] BulkWriteError on {collection.name}: {exc.details}")
             sys.exit(1)
         except PyMongoError as exc:
-            print(f"[ERRORE] PyMongoError su {collection.name}: {exc}")
+            print(f"[ERROR] PyMongoError on {collection.name}: {exc}")
             sys.exit(1)
     return total
 
@@ -421,15 +427,15 @@ def insert_batch(collection, documents: list[dict], batch_size: int = 500) -> in
 
 
 def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> None:
-    """Stampa il riepilogo su stdout e lo salva in seed_output.txt."""
+    """Print the summary to stdout and save it to seed_output.txt."""
     lines = [
-        "=== OpenTeX Seed completato ===",
-        f"{'users':<20} inseriti: {counts['users']:>6}",
-        f"{'projects':<20} inseriti: {counts['projects']:>6}",
-        f"{'files':<20} inseriti: {counts['files']:>6}",
-        f"{'permissions':<20} inseriti: {counts['permissions']:>6}",
-        f"{'activity_logs':<20} inseriti: {counts['activity_logs']:>6}",
-        f"Tempo totale: {elapsed:.1f}s",
+        "=== OpenTeX Seed completed ===",
+        f"{'users':<20} inserted: {counts['users']:>6}",
+        f"{'projects':<20} inserted: {counts['projects']:>6}",
+        f"{'files':<20} inserted: {counts['files']:>6}",
+        f"{'permissions':<20} inserted: {counts['permissions']:>6}",
+        f"{'activity_logs':<20} inserted: {counts['activity_logs']:>6}",
+        f"Total time: {elapsed:.1f}s",
         "",
         "--- Sample credentials (password: 'password') ---",
     ]
@@ -441,7 +447,7 @@ def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> Non
 
     output_path = Path(__file__).parent / "seed_output.txt"
     output_path.write_text(summary + "\n", encoding="utf-8")
-    print(f"\nOutput salvato in: {output_path}")
+    print(f"\nOutput saved to: {output_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -450,7 +456,7 @@ def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> Non
 
 
 def main() -> None:
-    """Orchestrazione principale del seed."""
+    """Main seed orchestration."""
     load_dotenv()
     args = parse_args()
 
@@ -461,11 +467,11 @@ def main() -> None:
         or "mongodb://localhost:27017"
     )
 
-    print(f"Connessione a MongoDB: {uri} | DB: {args.db}")
+    print(f"Connecting to MongoDB: {uri} | DB: {args.db}")
     db = connect_db(uri, args.db)
 
     if args.drop:
-        print("Dropping collezioni...")
+        print("Dropping collections...")
         maybe_drop_collections(db)
     else:
         check_existing_data(db)
@@ -475,8 +481,8 @@ def main() -> None:
     random.seed(42)
 
     print(
-        f"\nGenerazione dati: {args.users} utenti, "
-        f"{args.projects} progetti, {args.logs} log..."
+        f"\nGenerating data: {args.users} users, "
+        f"{args.projects} projects, {args.logs} logs..."
     )
     t0 = time.perf_counter()
 
@@ -488,7 +494,7 @@ def main() -> None:
         args.logs, users, projects, files, permissions, project_permissions_map, fake
     )
 
-    print("Inserimento in corso...")
+    print("Inserting records...")
     counts = {
         "users": insert_batch(db[COLLECTION_USERS], users),
         "projects": insert_batch(db[COLLECTION_PROJECTS], projects),

@@ -2,6 +2,16 @@
 
 OpenTeX is a self-hosted collaborative LaTeX environment for a NoSQL database course project. The focus is on the MongoDB data model, validation, queries, and benchmarks.
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/architecture.md](docs/architecture.md) | System architecture, data model, CAP/BASE notes, auth and compilation flows |
+| [docs/ai_usage.md](docs/ai_usage.md) | AI tool usage declaration and full issue tracklist |
+| [db/schema.md](db/schema.md) | MongoDB collection schemas and validation rules |
+
+---
+
 ## Folder structure
 
 - `db/` - Database documentation artifacts (schema and validation notes).
@@ -270,10 +280,12 @@ JWT_EXPIRATION_MINUTES=1440       # 24 h default, can be omitted
 
 The seed creates a fixed admin account and 50 regular accounts. All share password `password`. Sample emails are printed in `seed/seed_output.txt` after each run.
 
-| Email | Role |
-|-------|------|
-| `admin@opentex.org` | Admin |
+| Email | Account type |
+|-------|--------------|
+| `admin@opentex.org` | Site admin (`is_admin`) — sees statistics & benchmarks |
 | _(see seed_output.txt)_ | Regular users |
+
+> **Note:** "Site admin" here is the account-level `is_admin` flag, **not** the project-level `Admin` role from the [RBAC table](#available-roles). The two are independent: a site admin has no special rights inside a project they don't own, and a project `Admin` (shown as "Manager" in the UI) cannot see site statistics.
 
 ### Verify auth
 
