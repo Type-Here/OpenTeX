@@ -5,6 +5,11 @@ import styles from '../styles/PermissionsPanel.module.css'
 
 const ROLES = ['Admin', 'Editor', 'Viewer']
 
+// Display labels only — the value sent to the backend stays the Role enum
+// ("Admin"). "Manager" makes clear this is project-level management of
+// collaborators, not the site-wide admin (is_admin) who sees statistics.
+const ROLE_LABELS = { Admin: 'Manager', Editor: 'Editor', Viewer: 'Viewer' }
+
 export default function PermissionsPanel({ projectId, ownerId }) {
   const [permissions, setPermissions] = useState([])
   const [users, setUsers] = useState([])
@@ -83,7 +88,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
               {permissions.map((perm) => (
                 <li key={perm.id} className={styles.permRow}>
                   <span className={styles.permUser}>{perm.user_id}</span>
-                  <span className={`${styles.roleBadge} ${styles[perm.role]}`}>{perm.role}</span>
+                  <span className={`${styles.roleBadge} ${styles[perm.role.toLowerCase()]}`}>{ROLE_LABELS[perm.role] ?? perm.role}</span>
                   <button
                     className={styles.revokeBtn}
                     onClick={() => handleRevoke(perm.user_id)}
@@ -116,7 +121,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
                 onChange={(e) => setSelectedRole(e.target.value)}
               >
                 {ROLES.map((r) => (
-                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                 ))}
               </select>
               <button type="submit" className={styles.addBtn} disabled={saving || !selectedUser}>

@@ -9,3 +9,8 @@ export async function registerUser({ email, password, first_name, last_name, dep
   const res = await client.post('/auth/register', { email, password, first_name, last_name, department })
   return res.data
 }
+
+export async function getDepartments() {
+  const res = await client.get('/auth/departments')
+  return res.data
+}
