@@ -2,6 +2,33 @@
 
 OpenTeX is a self-hosted collaborative LaTeX environment for a NoSQL database course project. The focus is on the MongoDB data model, validation, queries, and benchmarks.
 
+## Quick Start
+
+**Prerequisites:** Docker >= 24.0, Docker Compose >= 2.20
+
+```bash
+# 1. Clone and configure
+git clone <url-repo> && cd opentex
+cp .env.example .env          # edit SECRET_KEY, MONGO_ROOT_USER, MONGO_ROOT_PASSWORD
+
+# 2. Start all services
+docker compose up -d --build
+
+# 3. Apply schema validation
+docker compose exec backend python -m scripts.validation.apply_schema_validation
+
+# 4. (Optional) Load seed data
+pip install -r seed/requirements.txt
+python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
+
+# 5. Open the app
+#    Frontend:  http://localhost:5173
+#    API docs:  http://localhost:8000/docs
+#    Seed login: admin@opentex.org / admin1234
+```
+
+> For detailed setup, environment variables, and service ports see the sections below.
+
 ## Documentation
 
 | Document | Description |
