@@ -30,7 +30,7 @@ class FileResponse(BaseModel):
             project_id=str(doc["project_id"]),
             filename=doc["filename"],
             file_type=doc["file_type"],
-            created_at=doc["created_at"],
+            created_at=doc.get("created_at") or doc.get("uploaded_at"),
             content=doc.get("content"),
             path=doc.get("path"),
             updated_at=doc.get("updated_at"),

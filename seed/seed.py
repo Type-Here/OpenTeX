@@ -312,7 +312,7 @@ def generate_files(
                     suffix += 1
 
             used_names.add(fname)
-            uploaded_at = fake.date_time_between(
+            created_at = fake.date_time_between(
                 start_date=project["created_at"],
                 end_date=datetime.utcnow(),
             )
@@ -322,7 +322,7 @@ def generate_files(
                 "project_id": pid,
                 "filename": fname,
                 "file_type": ftype,
-                "uploaded_at": uploaded_at,
+                "created_at": created_at,
                 "uploaded_by": random.choice(authorized_users),
                 "size_bytes": random.randint(512, 5_242_880),
             }

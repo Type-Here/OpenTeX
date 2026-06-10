@@ -13,6 +13,7 @@ const ROLE_LABELS = { Admin: 'Manager', Editor: 'Editor', Viewer: 'Viewer' }
 export default function PermissionsPanel({ projectId, ownerId }) {
   const [permissions, setPermissions] = useState([])
   const [users, setUsers] = useState([])
+  const [usersById, setUsersById] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedUser, setSelectedUser] = useState('')
@@ -29,6 +30,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
       ])
       setPermissions(perms)
       const permUserIds = new Set(perms.map((p) => p.user_id))
+      setUsersById(Object.fromEntries(allUsers.map((u) => [u.id, u])))
       setUsers(allUsers.filter((u) => u.id !== ownerId && !permUserIds.has(u.id)))
     } catch {
       setError('Failed to load permissions.')
@@ -68,7 +70,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
   }
 
   const getUserName = (userId) => {
-    const u = users.find((u) => u.id === userId)
+    const u = usersById[userId]
     return u ? `${u.first_name} ${u.last_name}` : userId
   }
 
@@ -87,7 +89,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
             <ul className={styles.permList}>
               {permissions.map((perm) => (
                 <li key={perm.id} className={styles.permRow}>
-                  <span className={styles.permUser}>{perm.user_id}</span>
+                  <span className={styles.permUser}>{getUserName(perm.user_id)}</span>
                   <span className={`${styles.roleBadge} ${styles[perm.role.toLowerCase()]}`}>{ROLE_LABELS[perm.role] ?? perm.role}</span>
                   <button
                     className={styles.revokeBtn}
