@@ -34,7 +34,6 @@ python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
 | Document | Description |
 |----------|-------------|
 | [docs/architecture.md](docs/architecture.md) | System architecture, data model, CAP/BASE notes, auth and compilation flows |
-| [docs/ai_usage.md](docs/ai_usage.md) | AI tool usage declaration and full issue tracklist |
 | [db/schema.md](db/schema.md) | MongoDB collection schemas and validation rules |
 
 ---
