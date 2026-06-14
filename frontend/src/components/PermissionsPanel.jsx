@@ -5,9 +5,15 @@ import styles from '../styles/PermissionsPanel.module.css'
 
 const ROLES = ['Admin', 'Editor', 'Viewer']
 
+// Display labels only — the value sent to the backend stays the Role enum
+// ("Admin"). "Manager" makes clear this is project-level management of
+// collaborators, not the site-wide admin (is_admin) who sees statistics.
+const ROLE_LABELS = { Admin: 'Manager', Editor: 'Editor', Viewer: 'Viewer' }
+
 export default function PermissionsPanel({ projectId, ownerId }) {
   const [permissions, setPermissions] = useState([])
   const [users, setUsers] = useState([])
+  const [usersById, setUsersById] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedUser, setSelectedUser] = useState('')
@@ -24,6 +30,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
       ])
       setPermissions(perms)
       const permUserIds = new Set(perms.map((p) => p.user_id))
+      setUsersById(Object.fromEntries(allUsers.map((u) => [u.id, u])))
       setUsers(allUsers.filter((u) => u.id !== ownerId && !permUserIds.has(u.id)))
     } catch {
       setError('Failed to load permissions.')
@@ -63,7 +70,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
   }
 
   const getUserName = (userId) => {
-    const u = users.find((u) => u.id === userId)
+    const u = usersById[userId]
     return u ? `${u.first_name} ${u.last_name}` : userId
   }
 
@@ -82,8 +89,8 @@ export default function PermissionsPanel({ projectId, ownerId }) {
             <ul className={styles.permList}>
               {permissions.map((perm) => (
                 <li key={perm.id} className={styles.permRow}>
-                  <span className={styles.permUser}>{perm.user_id}</span>
-                  <span className={`${styles.roleBadge} ${styles[perm.role]}`}>{perm.role}</span>
+                  <span className={styles.permUser}>{getUserName(perm.user_id)}</span>
+                  <span className={`${styles.roleBadge} ${styles[perm.role.toLowerCase()]}`}>{ROLE_LABELS[perm.role] ?? perm.role}</span>
                   <button
                     className={styles.revokeBtn}
                     onClick={() => handleRevoke(perm.user_id)}
@@ -116,7 +123,7 @@ export default function PermissionsPanel({ projectId, ownerId }) {
                 onChange={(e) => setSelectedRole(e.target.value)}
               >
                 {ROLES.map((r) => (
-                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                 ))}
               </select>
               <button type="submit" className={styles.addBtn} disabled={saving || !selectedUser}>

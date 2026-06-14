@@ -1,8 +1,8 @@
 """
-Entry point FastAPI per OpenTeX.
+FastAPI entry point for OpenTeX.
 
 Stack: FastAPI + Motor (async) + MongoDB 8.0
-Paradigma CAP: AP  |  Consistenza: BASE / eventual consistency
+CAP paradigm: AP  |  Consistency: BASE / eventual consistency
 """
 
 import logging
@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("OpenTeX backend avvio...")
+    logger.info("OpenTeX backend starting up...")
     ok = await ping_database()
     if not ok:
-        logger.warning("MongoDB non raggiungibile all'avvio — verificare la connessione.")
+        logger.warning("MongoDB unreachable at startup — check connection.")
     else:
         db = get_database()
         await db["users"].create_index("email", unique=True)
@@ -46,8 +46,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="OpenTeX API",
     description=(
-        "Backend REST per OpenTeX — ambiente collaborativo LaTeX self-hosted. "
-        "MongoDB 8.0, paradigma AP/BASE."
+        "REST backend for OpenTeX — self-hosted collaborative LaTeX environment. "
+        "MongoDB 8.0, AP/BASE paradigm."
     ),
     version="0.1.0",
     lifespan=lifespan,

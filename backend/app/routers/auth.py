@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from pymongo.errors import DuplicateKeyError
 
 from app.database import get_database
@@ -10,6 +10,26 @@ router = APIRouter()
 
 _USERS = "users"
 
+DEPARTMENTS: list[str] = [
+    "Informatica",
+    "Ingegneria",
+    "Matematica",
+    "Fisica",
+    "Chimica",
+    "Biologia",
+    "Medicina",
+    "Economia",
+    "Giurisprudenza",
+    "Lettere e Filosofia",
+    "Scienze Politiche",
+    "Psicologia",
+]
+
+
+@router.get("/departments", response_model=list[str])
+async def get_departments():
+    return DEPARTMENTS
+
 
 class RegisterBody(BaseModel):
     email: EmailStr
@@ -17,6 +37,13 @@ class RegisterBody(BaseModel):
     first_name: str
     last_name: str
     department: str
+
+    @field_validator("department")
+    @classmethod
+    def department_must_be_valid(cls, v: str) -> str:
+        if v not in DEPARTMENTS:
+            raise ValueError(f"Invalid department. Allowed: {', '.join(DEPARTMENTS)}")
+        return v
 
 
 class LoginBody(BaseModel):

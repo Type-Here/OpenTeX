@@ -2,6 +2,43 @@
 
 OpenTeX is a self-hosted collaborative LaTeX environment for a NoSQL database course project. The focus is on the MongoDB data model, validation, queries, and benchmarks.
 
+## Quick Start
+
+**Prerequisites:** Docker >= 24.0, Docker Compose >= 2.20
+
+```bash
+# 1. Clone and configure
+git clone <url-repo> && cd opentex
+cp .env.example .env          # edit SECRET_KEY, MONGO_ROOT_USER, MONGO_ROOT_PASSWORD
+
+# 2. Start all services
+docker compose up -d --build
+
+# 3. Apply schema validation
+docker compose exec backend python -m scripts.validation.apply_schema_validation
+
+# 4. (Optional) Load seed data
+pip install -r seed/requirements.txt
+python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
+
+# 5. Open the app
+#    Frontend:  http://localhost:5173
+#    API docs:  http://localhost:8000/docs
+#    Seed login: admin@opentex.org / admin1234
+```
+
+> For detailed setup, environment variables, and service ports see the sections below.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/architecture.md](docs/architecture.md) | System architecture, data model, CAP/BASE notes, auth and compilation flows |
+| [docs/ai_usage.md](docs/ai_usage.md) | AI tool usage declaration and full issue tracklist |
+| [db/schema.md](db/schema.md) | MongoDB collection schemas and validation rules |
+
+---
+
 ## Folder structure
 
 - `db/` - Database documentation artifacts (schema and validation notes).
@@ -270,10 +307,12 @@ JWT_EXPIRATION_MINUTES=1440       # 24 h default, can be omitted
 
 The seed creates a fixed admin account and 50 regular accounts. All share password `password`. Sample emails are printed in `seed/seed_output.txt` after each run.
 
-| Email | Role |
-|-------|------|
-| `admin@opentex.org` | Admin |
+| Email | Account type |
+|-------|--------------|
+| `admin@opentex.org` | Site admin (`is_admin`) — sees statistics & benchmarks |
 | _(see seed_output.txt)_ | Regular users |
+
+> **Note:** "Site admin" here is the account-level `is_admin` flag, **not** the project-level `Admin` role from the [RBAC table](#available-roles). The two are independent: a site admin has no special rights inside a project they don't own, and a project `Admin` (shown as "Manager" in the UI) cannot see site statistics.
 
 ### Verify auth
 

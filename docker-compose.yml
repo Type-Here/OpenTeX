@@ -36,6 +36,7 @@ services:
     volumes:
       - ./backend:/app
       - media_files:/app/media     # mount filesystem per i file LaTeX/media (NO embedding in Mongo)
+      - tectonic_cache:/root/.cache/Tectonic  # persist package cache across restarts
 
   frontend:
     image: node:20-alpine
@@ -53,3 +54,4 @@ services:
 volumes:
   mongo_data:
   media_files:
+  tectonic_cache:

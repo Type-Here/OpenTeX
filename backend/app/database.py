@@ -1,9 +1,9 @@
 """
-Connessione asincrona a MongoDB via Motor.
+Async MongoDB connection via Motor.
 
-Architettura AP (Availability + Partition Tolerance, teorema CAP) con semantica BASE.
-Le operazioni sono atomiche a singolo documento; le JOIN vengono eseguite via $lookup
-nelle aggregation pipeline.
+AP architecture (Availability + Partition Tolerance, CAP theorem) with BASE semantics.
+Operations are atomic at the single-document level; JOINs are performed via $lookup
+in aggregation pipelines.
 """
 
 import logging
@@ -19,7 +19,7 @@ def get_client() -> AsyncIOMotorClient:
     global _client
     if _client is None:
         _client = AsyncIOMotorClient(settings.mongo_uri)
-        logger.info("Motor client creato — URI: %s", settings.mongo_uri.split("@")[-1])
+        logger.info("Motor client created — URI: %s", settings.mongo_uri.split("@")[-1])
     return _client
 
 

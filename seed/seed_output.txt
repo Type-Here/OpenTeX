@@ -1,7 +1,14 @@
-=== OpenTeX Seed completato ===
-users                inseriti:     50
-projects             inseriti:    100
-files                inseriti:    356
-permissions          inseriti:    252
-activity_logs        inseriti:  30000
-Tempo totale: 0.4s
+=== OpenTeX Seed completed ===
+users                inserted:     51
+projects             inserted:    100
+files                inserted:    337
+permissions          inserted:    251
+activity_logs        inserted:  30000
+Total time: 0.3s
+
+--- Sample credentials (password: 'password') ---
+  admin@opentex.org [ADMIN]
+  leonegioele@example.org
+  queriniamedeo@example.org
+  zamoranigaetano@example.net
+  ricciottilettiere@example.org

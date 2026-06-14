@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { loginUser, registerUser } from '../api/auth'
+import { loginUser, registerUser, getDepartments } from '../api/auth'
 import styles from '../styles/LoginPage.module.css'
 
 export default function LoginPage({ onLogin }) {
@@ -11,12 +11,22 @@ export default function LoginPage({ onLogin }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [department, setDepartment] = useState('')
+  const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const switchMode = (next) => {
+  const switchMode = async (next) => {
     setMode(next)
     setError(null)
+    if (next === 'register' && departments.length === 0) {
+      try {
+        const list = await getDepartments()
+        setDepartments(list)
+        setDepartment(list[0] ?? '')
+      } catch {
+        // fallback: keep empty list, the select will show nothing
+      }
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -79,14 +89,17 @@ export default function LoginPage({ onLogin }) {
               </div>
               <div className={styles.field}>
                 <label className={styles.label} htmlFor="department">Department</label>
-                <input
+                <select
                   id="department"
                   className={styles.input}
-                  type="text"
                   required
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                />
+                >
+                  {departments.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
               </div>
             </>
           )}
