@@ -1,0 +1,510 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[italian]{babel}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{enumitem}
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric, fit}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black,
+  citecolor=blue!50!black,
+  pdftitle={OpenTeX -- Relazione finale},
+}
+
+\lstdefinestyle{code}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+  columns=fullflexible,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!40!black},
+  showstringspaces=false,
+}
+\lstset{style=code}
+
+\newcommand{\Done}{\textcolor{green!50!black}{\checkmark}}
+
+\title{\textbf{OpenTeX}\\[0.3em]\large Ambiente collaborativo LaTeX self-hosted su MongoDB\\[0.3em]\normalsize Relazione finale di progetto}
+\author{
+% TODO: nome e cognome autore/i
+% TODO: Team ID
+}
+\date{
+% TODO: data di consegna
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti LaTeX, sviluppato come progetto per il corso di Basi di Dati 2 (NoSQL). Il sistema adotta MongoDB come motore di persistenza, un backend FastAPI/Motor asincrono e un frontend React/Vite, con compilazione dei documenti tramite il motore \textit{Tectonic}. Questa relazione descrive l'installazione, l'architettura, il modello dei dati, le scelte CAP/BASE, le operazioni CRUD, la generazione di dati sintetici (ETL), gli indici e i relativi benchmark, e la pipeline di aggregazione (JOIN) realizzata sul progetto, riportando esclusivamente metriche misurate sul sistema realmente implementato.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =====================================================
+\section{Introduzione}
+% =====================================================
+
+OpenTeX nasce per dimostrare l'uso di un database NoSQL documentale (MongoDB) in un caso d'uso realistico: un editor collaborativo di documenti LaTeX con gestione di utenti, progetti, permessi, file e log di attività. Il progetto è stato sviluppato in maniera incrementale attraverso 10 issue (vedi Sezione~\ref{sec:conclusioni}), ciascuna chiusa con una pull request dedicata e revisionata da un membro del team diverso dall'autore.
+
+\subsection{Stack tecnologico}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Componente} & \textbf{Tecnologia} & \textbf{Ruolo} \\
+\midrule
+Frontend & React 19 + Vite 8 & Single-page application \\
+HTTP client & Axios 1.x & Iniezione automatica del Bearer JWT \\
+Editor & @uiw/react-codemirror 4.x & Editor con syntax highlighting LaTeX \\
+Backend & FastAPI + Motor (async) & API REST e logica applicativa \\
+Database & MongoDB 8.0 & Persistenza documentale \\
+Compilazione & Tectonic & Compilazione LaTeX $\to$ PDF, imbarcato nel backend \\
+Orchestrazione & Docker Compose & 3 servizi: mongo, backend, frontend \\
+\bottomrule
+\end{tabular}
+\caption{Stack tecnologico di OpenTeX.}
+\end{table}
+
+% =====================================================
+\section{Installazione}
+% =====================================================
+
+Il sistema è interamente containerizzato; l'unico prerequisito è Docker (\textgreater= 24.0) e Docker Compose (\textgreater= 2.20).
+
+\subsection{Procedura}
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item Clonare il repository e configurare le variabili d'ambiente:
+\begin{lstlisting}
+git clone <url-repo> && cd opentex
+cp .env.example .env   # impostare SECRET_KEY, MONGO_ROOT_USER, MONGO_ROOT_PASSWORD
+\end{lstlisting}
+  \item Avviare tutti i servizi:
+\begin{lstlisting}
+docker compose up -d --build
+\end{lstlisting}
+  \item Applicare la validazione dello schema MongoDB (\texttt{\$jsonSchema}):
+\begin{lstlisting}
+docker compose exec backend python -m scripts.validation.apply_schema_validation
+\end{lstlisting}
+  \item (Opzionale) Caricare dati sintetici di esempio:
+\begin{lstlisting}
+python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
+\end{lstlisting}
+  \item Verificare il funzionamento:
+\begin{lstlisting}
+curl http://localhost:8000/health
+\end{lstlisting}
+\end{enumerate}
+
+\subsection{Servizi esposti}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Servizio} & \textbf{URL} & \textbf{Note} \\
+\midrule
+Frontend & \url{http://localhost:5173} & React + Vite, hot-reload \\
+Backend API & \url{http://localhost:8000} & FastAPI + Motor \\
+Swagger UI & \url{http://localhost:8000/docs} & Documentazione API interattiva \\
+MongoDB & \texttt{localhost:27017} & Credenziali in \texttt{.env} \\
+\bottomrule
+\end{tabular}
+\caption{Servizi e porte esposte da Docker Compose.}
+\end{table}
+
+Login di test (creato dal seed): \texttt{admin@opentex.org} / \texttt{admin1234} (account amministratore di sito, con accesso a statistiche e benchmark).
+
+% =====================================================
+\section{Architettura}
+% =====================================================
+
+\subsection{Architettura a tre livelli}
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, minimum width=3.4cm, minimum height=1.6cm, align=center, fill=blue!6},
+  arr/.style={-Stealth, thick}
+]
+\node[box] (fe) {Frontend\\React + Vite\\porta 5173};
+\node[box, right=3.2cm of fe] (be) {Backend\\FastAPI + Motor\\porta 8000};
+\node[box, right=3.2cm of be] (db) {MongoDB 8.0\\(Docker)\\porta 27017};
+
+\draw[arr] (fe.east) -- (be.west) node[midway, above, font=\scriptsize] {HTTP/REST};
+\draw[arr] (be.west) -- (fe.east) node[midway, below, font=\scriptsize] {JSON / PDF};
+\draw[arr] (be.east) -- (db.west) node[midway, above, font=\scriptsize] {Motor (async)};
+\draw[arr] (db.west) -- (be.east) node[midway, below, font=\scriptsize] {Documenti BSON};
+\end{tikzpicture}
+\caption{Architettura a tre livelli di OpenTeX. Tutti i servizi sono orchestrati via Docker Compose; il backend imbarca un binario statico di Tectonic, eliminando la necessità di un'installazione TeX separata.}
+\end{figure}
+
+\subsection{Modello dei dati: 5 collezioni}
+
+Il database è organizzato in cinque collezioni. La scelta tra \emph{embedding} e \emph{referencing} è stata guidata da tre criteri: stabilità del dato, dimensione, e limite di 16\,MB per documento imposto da MongoDB.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}p{4.2cm}p{2.2cm}p{7cm}@{}}
+\toprule
+\textbf{Decisione} & \textbf{Scelta} & \textbf{Motivazione} \\
+\midrule
+Metadati di progetto (tag, abstract) & Embedded & Piccoli, stabili, letti sempre insieme al progetto \\
+File, permessi, log di attività & Referenced (\texttt{ObjectId}) & Crescita illimitata; i file multimediali eccedono il limite di 16\,MB/documento \\
+Profili utente & Referenced & Condivisi tra molti progetti; aggiornati indipendentemente \\
+\bottomrule
+\end{tabular}
+\caption{Criteri di modellazione: embedding vs.\ referencing.}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\small
+\begin{tabular}{@{}p{2.2cm}p{9.8cm}@{}}
+\toprule
+\textbf{Collezione} & \textbf{Campi principali} \\
+\midrule
+\texttt{users} & \texttt{email} (univoca), \texttt{first\_name}, \texttt{last\_name}, \texttt{department}, \texttt{hashed\_password}, \texttt{is\_admin}, \texttt{created\_at}, \texttt{preferences} \\
+\texttt{projects} & \texttt{title}, \texttt{abstract}, \texttt{tags[]}, \texttt{owner\_id} $\to$ \texttt{users}, \texttt{created\_at}, \texttt{updated\_at} \\
+\texttt{files} & \texttt{project\_id} $\to$ \texttt{projects}, \texttt{filename}, \texttt{file\_type} (\texttt{tex|bib|image|pdf}), \texttt{content} (tex/bib) | \texttt{path} (image/pdf), \texttt{uploaded\_by} $\to$ \texttt{users} \\
+\texttt{permissions} & \texttt{user\_id} $\to$ \texttt{users}, \texttt{project\_id} $\to$ \texttt{projects}, \texttt{role} (\texttt{Admin|Editor|Viewer}), \texttt{granted\_at}, \texttt{granted\_by} \\
+\texttt{activity\_logs} & \texttt{user\_id} $\to$ \texttt{users}, \texttt{project\_id} $\to$ \texttt{projects}, \texttt{action}, \texttt{resource}, \texttt{resource\_id}, \texttt{timestamp} \\
+\bottomrule
+\end{tabular}
+\caption{Schema sintetico delle 5 collezioni. La validazione \texttt{\$jsonSchema} applicata in MongoDB impone i campi obbligatori, i tipi e le regole condizionali (es.\ \texttt{content} richiesto per \texttt{tex}/\texttt{bib}, \texttt{path} per \texttt{image}/\texttt{pdf}); non viene invece verificata l'integrità referenziale a livello di database, scelta coerente con il modello AP descritto in Sezione~\ref{sec:cap}.}
+\end{table}
+
+\subsection{Flusso di autenticazione}
+
+L'autenticazione è basata su JWT firmati con algoritmo HS256. Le password sono salvate con hash \texttt{bcrypt} e non vengono mai restituite in alcuna risposta API. Il token scade dopo \texttt{JWT\_EXPIRATION\_MINUTES} (default 1440 minuti, 24\,h).
+
+\begin{lstlisting}
+POST /auth/register {email, password, first_name, last_name, department}
+  -> bcrypt.hash(password) salvato in users; 201 Created
+
+POST /auth/login {email, password}
+  -> bcrypt.verify; JWT firmato con SECRET_KEY
+  -> 200 {access_token, token_type, user}
+
+GET /projects/  (Authorization: Bearer <token>)
+  -> JWT decodificato, user_id iniettato come dipendenza
+  -> 200 [...]
+\end{lstlisting}
+
+\subsection{Pipeline di compilazione LaTeX}
+
+La compilazione avviene in una directory temporanea isolata, con timeout e parallelismo limitato per contenere il carico sul backend:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item Recupero di tutti i file \texttt{.tex}/\texttt{.bib} del progetto da MongoDB.
+  \item Scrittura in una directory temporanea isolata (\texttt{tempfile.mkdtemp}).
+  \item Acquisizione di un semaforo (massimo 2 job paralleli).
+  \item Esecuzione di \texttt{tectonic --keep-logs --outdir <tmp> <entry\_point.tex>}, timeout 60\,s, \texttt{\textbackslash write18} disabilitato di default.
+  \item Successo $\to$ lettura di \texttt{output.pdf}, risposta \texttt{application/pdf}.
+  \item Fallimento $\to$ risposta \texttt{422} con il log di Tectonic.
+  \item Timeout $\to$ risposta \texttt{504}.
+  \item Sempre $\to$ \texttt{shutil.rmtree(tmp)} (pulizia).
+\end{enumerate}
+
+L'entry point è \texttt{main.tex} se presente, altrimenti il primo file \texttt{.tex} in ordine alfabetico.
+
+% =====================================================
+\section{Modello CAP e proprietà BASE}
+\label{sec:cap}
+% =====================================================
+
+OpenTeX gira su una singola istanza/replica MongoDB. Il sistema è progettato secondo il paradigma \textbf{AP} del teorema CAP:
+
+\begin{itemize}[leftmargin=2.2em]
+  \item \textbf{Availability} -- le richieste di lettura e scrittura hanno successo anche in presenza di guasti transitori.
+  \item \textbf{Partition Tolerance} -- il sistema continua a operare in presenza di partizioni di rete.
+  \item \textbf{Consistency} (rilassata) -- MongoDB garantisce solo atomicità a livello di singolo documento; non esistono transazioni multi-documento o cross-collection. Sono quindi possibili letture stale in casi limite (es. un documento \texttt{projects} aggiornato mentre viene letto il relativo \texttt{permissions}).
+\end{itemize}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}p{3.4cm}p{8.6cm}@{}}
+\toprule
+\textbf{Proprietà BASE} & \textbf{Implementazione in OpenTeX} \\
+\midrule
+\textbf{B}asically Available & FastAPI risponde immediatamente; nessun lock globale \\
+\textbf{S}oft state & Gli aggregati derivati (es.\ conteggio collaboratori) sono calcolati on-demand, non cacheati \\
+\textbf{E}ventually consistent & I log di attività e le modifiche ai permessi si propagano alla lettura successiva; nessuna sincronizzazione write-ahead \\
+\bottomrule
+\end{tabular}
+\caption{Semantica BASE adottata da OpenTeX.}
+\end{table}
+
+% =====================================================
+\section{API e operazioni CRUD}
+% =====================================================
+
+Il backend espone 7 router FastAPI con operazioni CRUD complete sulle risorse principali, documentate automaticamente via Swagger (\texttt{/docs}).
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabular}{@{}p{1.9cm}p{1.1cm}p{5.4cm}p{4.4cm}@{}}
+\toprule
+\textbf{Router} & \textbf{Metodo} & \textbf{Endpoint} & \textbf{Descrizione} \\
+\midrule
+\texttt{auth} & POST & \texttt{/auth/register} & Registrazione utente \\
+ & POST & \texttt{/auth/login} & Login, rilascio JWT \\
+ & GET & \texttt{/auth/departments} & Elenco dipartimenti \\
+\texttt{projects} & POST & \texttt{/projects/} & Creazione progetto \\
+ & GET & \texttt{/projects/} & Elenco progetti (filtro \texttt{owner\_id}) \\
+ & GET & \texttt{/projects/\{id\}} & Dettaglio progetto \\
+ & PUT & \texttt{/projects/\{id\}} & Aggiornamento progetto \\
+ & DELETE & \texttt{/projects/\{id\}} & Cancellazione progetto \\
+ & GET & \texttt{/projects/\{id\}/files} & File collegati al progetto \\
+\texttt{files} & PUT & \texttt{/files/\{id\}} & Salvataggio contenuto file \\
+ & DELETE & \texttt{/files/\{id\}} & Cancellazione file \\
+\texttt{permissions} & POST & \texttt{/projects/\{id\}/permissions} & Assegna/aggiorna ruolo \\
+ & DELETE & \texttt{/projects/\{id\}/permissions/\{uid\}} & Revoca accesso \\
+ & GET & \texttt{/projects/\{id\}/permissions} & Elenco collaboratori \\
+\texttt{compile} & POST & \texttt{/projects/\{id\}/compile} & Compilazione LaTeX $\to$ PDF \\
+\texttt{stats} & GET & \texttt{/stats/projects} & Statistiche aggregate (JOIN) \\
+ & GET & \texttt{/stats/benchmarks} & Risultati benchmark indici \\
+\texttt{users} & GET & \texttt{/users/} & Elenco utenti \\
+ & GET & \texttt{/users/\{id\}} & Dettaglio utente \\
+\bottomrule
+\end{tabular}
+\caption{Endpoint REST implementati (15 endpoint su 7 router).}
+\end{table}
+
+\subsection{Controllo accessi (RBAC)}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Ruolo} & \textbf{Read} & \textbf{Edit} & \textbf{Delete} & \textbf{Gestione permessi} \\
+\midrule
+Admin  & \Done & \Done & \Done & \Done \\
+Editor & \Done & \Done & --    & --    \\
+Viewer & \Done & --    & --    & --    \\
+\bottomrule
+\end{tabular}
+\caption{Ruoli di progetto (collezione \texttt{permissions}). Il proprietario del progetto è sempre Admin implicito ed è l'unico che può cancellarlo. Il flag \texttt{is\_admin} a livello account è indipendente da questi ruoli.}
+\end{table}
+
+% =====================================================
+\section{ETL -- Generazione di dati sintetici}
+% =====================================================
+
+Per testare query, indici e benchmark in condizioni realistiche è stato sviluppato un generatore di dati sintetici basato su \texttt{Faker} (\texttt{seed/seed.py}), parametrico nel numero di utenti, progetti e log generati, e con integrità referenziale garantita (ogni \texttt{owner\_id} punta a un utente esistente, ogni \texttt{permission} a una coppia utente-progetto valida).
+
+\begin{lstlisting}
+pip install -r seed/requirements.txt
+python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
+\end{lstlisting}
+
+\subsection{Output di un'esecuzione reale}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Collezione} & \textbf{Documenti generati} \\
+\midrule
+\texttt{users} & 51 (incluso l'account admin) \\
+\texttt{projects} & 100 \\
+\texttt{files} & 337 \\
+\texttt{permissions} & 251 \\
+\texttt{activity\_logs} & 30\,000 \\
+\midrule
+\textbf{Tempo totale} & 0.3\,s \\
+\bottomrule
+\end{tabular}
+\caption{Risultato di un'esecuzione dello script di seed (\texttt{seed/seed\_output.txt}).}
+\end{table}
+
+% =====================================================
+\section{Indici e benchmark}
+% =====================================================
+
+\subsection{Indici creati}
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabular}{@{}p{4.4cm}p{2.6cm}p{3cm}p{2cm}@{}}
+\toprule
+\textbf{Indice} & \textbf{Collezione} & \textbf{Campi} & \textbf{Tipo} \\
+\midrule
+\texttt{projects\_text\_search} & \texttt{projects} & \texttt{title}, \texttt{abstract} & Full-text \\
+\texttt{projects\_owner\_date} & \texttt{projects} & \texttt{owner\_id} + \texttt{created\_at} & Composto \\
+\texttt{permissions\_project\_id} & \texttt{permissions} & \texttt{project\_id} & Singolo campo \\
+\texttt{activity\_logs\_project\_id} & \texttt{activity\_logs} & \texttt{project\_id} & Singolo campo \\
+\texttt{files\_project\_id} & \texttt{files} & \texttt{project\_id} & Singolo campo \\
+\bottomrule
+\end{tabular}
+\caption{Indici creati da \texttt{scripts/indexes/create\_indexes.py}, verificati con \texttt{explain()}.}
+\end{table}
+
+\subsection{Risultati del benchmark}
+
+Le query sono state misurate con e senza l'indice corrispondente, su 10 esecuzioni per query (media riportata).
+
+\begin{table}[h!]
+\centering
+\small
+\begin{tabular}{@{}p{4.6cm}rrr@{}}
+\toprule
+\textbf{Query} & \textbf{Con indice} & \textbf{Senza indice} & \textbf{Speedup} \\
+\midrule
+Text search (title + abstract) & 1.753\,ms & 2.003\,ms & 1.1$\times$ \\
+Compound: \texttt{owner\_id} + \texttt{created\_at} & 1.492\,ms & 1.655\,ms & 1.1$\times$ \\
+Permissions by \texttt{project\_id} & 1.561\,ms & 1.667\,ms & 1.1$\times$ \\
+Activity logs by \texttt{project\_id} & 1.750\,ms & 19.024\,ms & \textbf{10.9$\times$} \\
+Files by \texttt{project\_id} & 1.609\,ms & 1.979\,ms & 1.2$\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Tempi medi di esecuzione su 10 run (\texttt{scripts/benchmark/run\_benchmark.py}).}
+\end{table}
+
+\textbf{Interpretazione.} Lo speedup più marcato (10.9$\times$) si osserva sulla query su \texttt{activity\_logs}, l'unica collezione realmente di grandi dimensioni (30\,000 documenti): senza indice MongoDB esegue una scansione completa (\texttt{COLLSCAN}) su tutti i 30k documenti, con indice risolve la stessa query in $O(\log n)$ (\texttt{IXSCAN}). Le altre query mostrano guadagni modesti (1.1--1.2$\times$) perché le collezioni coinvolte sono piccole ($\le$ 356 documenti): a questa scala \texttt{COLLSCAN} e \texttt{IXSCAN} hanno tempi di esecuzione comparabili, e l'overhead della rete Docker domina la misura. Lo speedup di questi indici crescerebbe proporzionalmente al volume di dati.
+
+% =====================================================
+\section{Aggregation pipeline (JOIN)}
+% =====================================================
+
+L'endpoint \texttt{GET /stats/projects} realizza una pipeline di aggregazione multi-stadio che unisce quattro collezioni, rappresentando la principale dimostrazione di JOIN cross-collection in MongoDB.
+
+\begin{figure}[h!]
+\centering
+\begin{tikzpicture}[
+  stage/.style={draw, rounded corners, minimum width=4.4cm, minimum height=0.9cm, align=center, fill=orange!10},
+  coll/.style={draw, rounded corners, minimum width=3cm, minimum height=0.8cm, align=center, fill=blue!8},
+  arr/.style={-Stealth, thick}
+]
+\node[coll] (proj) {\texttt{projects}};
+\node[stage, below=0.5cm of proj] (l1) {\$lookup $\to$ \texttt{users} (owner)};
+\node[stage, below=0.5cm of l1] (l2) {\$lookup $\to$ \texttt{permissions}};
+\node[stage, below=0.5cm of l2] (l3) {\$lookup $\to$ \texttt{activity\_logs}};
+\node[stage, below=0.5cm of l3] (grp) {\$group by \texttt{department}};
+\node[stage, below=0.5cm of grp] (srt) {\$sort by \texttt{total\_activity} DESC};
+
+\draw[arr] (proj) -- (l1);
+\draw[arr] (l1) -- (l2);
+\draw[arr] (l2) -- (l3);
+\draw[arr] (l3) -- (grp);
+\draw[arr] (grp) -- (srt);
+\end{tikzpicture}
+\caption{Pipeline di aggregazione di \texttt{/stats/projects}. Filtri opzionali (\texttt{department}, \texttt{date\_from}, \texttt{date\_to}) sono applicati in uno stadio \$match prima dei lookup.}
+\end{figure}
+
+\subsection{Esempio di chiamata e risposta}
+
+\begin{lstlisting}
+GET /stats/projects?department=Engineering
+
+[
+  {
+    "department": "Engineering",
+    "project_count": 12,
+    "total_collaborators": 34,
+    "avg_collaborators": 2.83,
+    "total_activity": 1520
+  }
+]
+\end{lstlisting}
+
+% =====================================================
+\section{Metriche di progetto}
+% =====================================================
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Area} & \textbf{Righe di codice (LOC)} \\
+\midrule
+Backend Python (\texttt{backend/}) & 1\,245 \\
+Frontend JS/JSX (\texttt{frontend/src/}) & 1\,466 \\
+Script seed + scripts (indici/benchmark/validazione) & 1\,024 \\
+\midrule
+\textbf{Totale} & \textbf{3\,735} \\
+\bottomrule
+\end{tabular}
+\caption{Conteggio righe di codice (\texttt{wc -l} sui file \texttt{.py}/\texttt{.js}/\texttt{.jsx}, esclusi \texttt{node\_modules}).}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Metrica} & \textbf{Valore} \\
+\midrule
+Collezioni MongoDB & 5 \\
+Indici creati & 5 \\
+Router API & 7 \\
+Endpoint REST & 15 \\
+Ruoli RBAC & 3 (Admin / Editor / Viewer) \\
+Pagine frontend & 6 \\
+Componenti UI condivisi & 4 \\
+% TODO: ore/persona spese sul progetto (da form di valutazione)
+% TODO: numero di contributor attivi
+\bottomrule
+\end{tabular}
+\caption{Metriche riassuntive di progetto.}
+\end{table}
+
+% =====================================================
+\section{Uso dell'intelligenza artificiale}
+% =====================================================
+
+In conformità con i requisiti del corso, l'uso di strumenti di intelligenza artificiale generativa è dichiarato in modo trasparente nei form di valutazione associati a ciascuna issue (cartella \texttt{10/Form/}):
+
+\begin{itemize}[leftmargin=2.2em]
+  \item \textbf{Issue \#2} (generazione dati sintetici) -- assistente Claude usato come supporto alla generazione dello script di seed; output verificato ed eseguito prima del merge.
+  \item \textbf{Issue \#10} (documentazione finale) -- Claude Code usato per la generazione della documentazione, il fix del Dockerfile (build-arg \texttt{TARGETARCH}), le traduzioni e il polish del frontend; output verificato prima del merge.
+\end{itemize}
+
+In tutti i casi il codice e i contenuti generati sono stati revisionati da un membro del team prima dell'integrazione, secondo il workflow standard: 1 issue $\to$ 1 branch $\to$ 1 PR $\to$ 1 review $\to$ merge.
+
+% =====================================================
+\section{Conclusioni}
+\label{sec:conclusioni}
+% =====================================================
+
+Il progetto OpenTeX è stato sviluppato attraverso 10 issue, ciascuna chiusa con una pull request dedicata:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item Schema e validation delle 5 collezioni MongoDB
+  \item Generatore di dati sintetici (seed)
+  \item Setup repository, Docker Compose e configurazione base
+  \item API CRUD per la gestione dei progetti
+  \item Sistema di permessi e gestione collaboratori
+  \item UI Dashboard "I miei Progetti"
+  \item Aggregation pipeline per statistiche (JOIN tra collezioni)
+  \item Creazione e ottimizzazione indici
+  \item Benchmark query con e senza indici
+  \item Documentazione finale e proof of concept
+\end{enumerate}
+
+Tutte le issue risultano chiuse e le relative pull request mergiate su \texttt{main} (l'ultima, PR \#28, relativa alla documentazione finale). Il sistema è interamente riproducibile da zero seguendo le istruzioni del README, non contiene credenziali reali nel repository, ed è stato verificato end-to-end (registrazione, login, creazione progetto, upload/editing file, compilazione LaTeX, gestione permessi, consultazione statistiche).
+
+\end{document}
