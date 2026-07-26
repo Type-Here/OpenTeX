@@ -41,8 +41,7 @@
 
 \title{\textbf{OpenTeX}\\[0.3em]\large Ambiente collaborativo LaTeX self-hosted su MongoDB\\[0.3em]\normalsize Relazione finale di progetto}
 \author{
-% TODO: nome e cognome autore/i
-% TODO: Team ID
+    Cieri Manuel, Citro Gianluigi
 }
 \date{
 % TODO: data di consegna
@@ -52,9 +51,10 @@
 
 \maketitle
 
+\vspace{-2.5em}
 \begin{abstract}
 \noindent
-OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti LaTeX, sviluppato come progetto per il corso di Basi di Dati 2 (NoSQL). Il sistema adotta MongoDB come motore di persistenza, un backend FastAPI/Motor asincrono e un frontend React/Vite, con compilazione dei documenti tramite il motore \textit{Tectonic}. Questa relazione descrive l'installazione, l'architettura, il modello dei dati, le scelte CAP/BASE, le operazioni CRUD, la generazione di dati sintetici (ETL), gli indici e i relativi benchmark, e la pipeline di aggregazione (JOIN) realizzata sul progetto, riportando esclusivamente metriche misurate sul sistema realmente implementato.
+OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti LaTeX, sviluppato come progetto per il corso di Basi di Dati 2 (NoSQL). Il sistema adotta MongoDB come motore di persistenza, un backend FastAPI/Motor asincrono e un frontend React/Vite, con compilazione dei documenti tramite il motore \textit{Tectonic}. Questa relazione descrive l'installazione, l'architettura, il modello dei dati, le scelte CAP/BASE, le operazioni CRUD, la generazione di dati sintetici (ETL), gli indici e i relativi benchmark, e la pipeline di aggregazione (JOIN) realizzata sul progetto, riportando le metriche realmente misurate.
 \end{abstract}
 
 \tableofcontents
@@ -64,7 +64,7 @@ OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti L
 \section{Introduzione}
 % =====================================================
 
-OpenTeX nasce per dimostrare l'uso di un database NoSQL documentale (MongoDB) in un caso d'uso realistico: un editor collaborativo di documenti LaTeX con gestione di utenti, progetti, permessi, file e log di attività. Il progetto è stato sviluppato in maniera incrementale attraverso 10 issue (vedi Sezione~\ref{sec:conclusioni}), ciascuna chiusa con una pull request dedicata e revisionata da un membro del team diverso dall'autore.
+OpenTeX nasce per dimostrare l'uso di un database NoSQL documentale (MongoDB) in un caso d'uso realistico: un editor collaborativo di documenti LaTeX con gestione di utenti, progetti, permessi, file e log di attività. Il progetto è stato sviluppato in maniera incrementale attraverso 14 issue (vedi Sezione~\ref{sec:conclusioni}), ciascuna chiusa con una pull request dedicata e revisionata da un membro del team diverso dall'autore.
 
 \subsection{Stack tecnologico}
 
@@ -135,7 +135,7 @@ MongoDB & \texttt{localhost:27017} & Credenziali in \texttt{.env} \\
 \caption{Servizi e porte esposte da Docker Compose.}
 \end{table}
 
-Login di test (creato dal seed): \texttt{admin@opentex.org} / \texttt{admin1234} (account amministratore di sito, con accesso a statistiche e benchmark).
+Login di test (creato dal seed): \texttt{admin@opentex.org} / \texttt{password} (account amministratore di sito, con accesso a statistiche e benchmark). Tutti gli account generati dal seed condividono la stessa password; gli indirizzi di esempio sono riportati in \texttt{seed/seed\_output.txt} dopo ogni esecuzione.
 
 % =====================================================
 \section{Architettura}
@@ -195,6 +195,8 @@ Profili utente & Referenced & Condivisi tra molti progetti; aggiornati indipende
 \end{tabular}
 \caption{Schema sintetico delle 5 collezioni. La validazione \texttt{\$jsonSchema} applicata in MongoDB impone i campi obbligatori, i tipi e le regole condizionali (es.\ \texttt{content} richiesto per \texttt{tex}/\texttt{bib}, \texttt{path} per \texttt{image}/\texttt{pdf}); non viene invece verificata l'integrità referenziale a livello di database, scelta coerente con il modello AP descritto in Sezione~\ref{sec:cap}.}
 \end{table}
+
+\pagebreak
 
 \subsection{Flusso di autenticazione}
 
@@ -279,6 +281,7 @@ Il backend espone 7 router FastAPI con operazioni CRUD complete sulle risorse pr
  & PUT & \texttt{/projects/\{id\}} & Aggiornamento progetto \\
  & DELETE & \texttt{/projects/\{id\}} & Cancellazione progetto \\
  & GET & \texttt{/projects/\{id\}/files} & File collegati al progetto \\
+ & POST & \texttt{/projects/\{id\}/files} & Creazione file nel progetto \\
 \texttt{files} & PUT & \texttt{/files/\{id\}} & Salvataggio contenuto file \\
  & DELETE & \texttt{/files/\{id\}} & Cancellazione file \\
 \texttt{permissions} & POST & \texttt{/projects/\{id\}/permissions} & Assegna/aggiorna ruolo \\
@@ -291,7 +294,7 @@ Il backend espone 7 router FastAPI con operazioni CRUD complete sulle risorse pr
  & GET & \texttt{/users/\{id\}} & Dettaglio utente \\
 \bottomrule
 \end{tabular}
-\caption{Endpoint REST implementati (15 endpoint su 7 router).}
+\caption{Endpoint REST implementati (20 endpoint su 7 router).}
 \end{table}
 
 \subsection{Controllo accessi (RBAC)}
@@ -359,9 +362,11 @@ python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
 \texttt{permissions\_project\_id} & \texttt{permissions} & \texttt{project\_id} & Singolo campo \\
 \texttt{activity\_logs\_project\_id} & \texttt{activity\_logs} & \texttt{project\_id} & Singolo campo \\
 \texttt{files\_project\_id} & \texttt{files} & \texttt{project\_id} & Singolo campo \\
+\midrule
+\texttt{email\_1} & \texttt{users} & \texttt{email} & Univoco \\
 \bottomrule
 \end{tabular}
-\caption{Indici creati da \texttt{scripts/indexes/create\_indexes.py}, verificati con \texttt{explain()}.}
+\caption{Indici del sistema. I primi cinque sono creati da \texttt{scripts/indexes/create\_indexes.py} e verificati con \texttt{explain()}; l'indice univoco su \texttt{users.email} è garantito all'avvio dell'applicazione (\texttt{backend/app/main.py}) e assolve una duplice funzione: accelera la ricerca dell'utente in fase di login e impone a livello di database l'unicità dell'indirizzo email in fase di registrazione.}
 \end{table}
 
 \subsection{Risultati del benchmark}
@@ -459,12 +464,14 @@ Script seed + scripts (indici/benchmark/validazione) & 1\,024 \\
 \textbf{Metrica} & \textbf{Valore} \\
 \midrule
 Collezioni MongoDB & 5 \\
-Indici creati & 5 \\
+Indici & 6 (5 di query + 1 univoco) \\
 Router API & 7 \\
-Endpoint REST & 15 \\
+Endpoint REST & 20 \\
 Ruoli RBAC & 3 (Admin / Editor / Viewer) \\
 Pagine frontend & 6 \\
 Componenti UI condivisi & 4 \\
+Issue chiuse & 14 \\
+Pull request mergiate & 14 \\
 % TODO: ore/persona spese sul progetto (da form di valutazione)
 % TODO: numero di contributor attivi
 \bottomrule
@@ -476,35 +483,55 @@ Componenti UI condivisi & 4 \\
 \section{Uso dell'intelligenza artificiale}
 % =====================================================
 
-In conformità con i requisiti del corso, l'uso di strumenti di intelligenza artificiale generativa è dichiarato in modo trasparente nei form di valutazione associati a ciascuna issue (cartella \texttt{10/Form/}):
+In conformità con i requisiti del corso, l'uso di strumenti di intelligenza artificiale generativa è dichiarato in modo trasparente. La tracciatura puntuale, issue per issue e PR per PR, è contenuta nei form di valutazione compilati durante lo svolgimento del progetto (FORM~3 e FORM~4). Di seguito una sintesi delle aree in cui gli strumenti sono stati impiegati.
 
 \begin{itemize}[leftmargin=2.2em]
-  \item \textbf{Issue \#2} (generazione dati sintetici) -- assistente Claude usato come supporto alla generazione dello script di seed; output verificato ed eseguito prima del merge.
-  \item \textbf{Issue \#10} (documentazione finale) -- Claude Code usato per la generazione della documentazione, il fix del Dockerfile (build-arg \texttt{TARGETARCH}), le traduzioni e il polish del frontend; output verificato prima del merge.
+  \item \textbf{Progettazione del modello dati} (Issue \#1) -- supporto al ragionamento sui criteri di embedding e referencing e sulla gestione dei file multimediali, con esplicitazione dei vincoli (limite di 16\,MB per documento) alla base delle scelte adottate.
+  \item \textbf{Generazione dati sintetici} (Issue \#2) -- supporto alla stesura dello script di seed; output verificato ed eseguito prima del merge.
+  \item \textbf{Query e aggregazioni} (Issue \#7) -- supporto alla stesura della pipeline di aggregazione multi-stadio (\texttt{\$lookup}, \texttt{\$group}, \texttt{\$sort}); risultati verificati eseguendo la pipeline sui dati di seed.
+  \item \textbf{Indici e benchmark} (Issue \#8--\#9) -- supporto alla definizione degli indici, alla lettura dell'output di \texttt{explain()} e alla struttura dello script di misura; metodologia e interpretazione dei risultati definite dal team.
+  \item \textbf{Autenticazione e compilazione} (Issue \#20--\#21) -- supporto alla configurazione dell'hashing con \texttt{bcrypt} e dei token JWT, e all'invocazione isolata del compilatore esterno (directory temporanea, timeout, semaforo).
+  \item \textbf{Documentazione} (Issue \#10) -- Claude Code usato per la generazione della documentazione, il fix del Dockerfile (build-arg \texttt{TARGETARCH}), le traduzioni e il polish del frontend.
 \end{itemize}
 
-In tutti i casi il codice e i contenuti generati sono stati revisionati da un membro del team prima dell'integrazione, secondo il workflow standard: 1 issue $\to$ 1 branch $\to$ 1 PR $\to$ 1 review $\to$ merge.
+In tutti i casi l'output generato è stato eseguito e verificato prima dell'integrazione, e revisionato da un membro del team diverso dall'autore, secondo il workflow standard: 1 issue $\to$ 1 branch $\to$ 1 PR $\to$ 1 review $\to$ merge. Nessun contenuto è stato integrato senza essere compreso e verificabile dal team.
 
 % =====================================================
 \section{Conclusioni}
 \label{sec:conclusioni}
 % =====================================================
 
-Il progetto OpenTeX è stato sviluppato attraverso 10 issue, ciascuna chiusa con una pull request dedicata:
+Il progetto OpenTeX è stato sviluppato attraverso 14 issue, ciascuna su un branch dedicato e chiusa da una pull request collegata tramite \texttt{Closes}. Le prime dieci coprono i requisiti del progetto; le ultime quattro sono estensioni realizzate a partire dai \emph{nice to have} della proposta iniziale.
 
-\begin{enumerate}[leftmargin=2.2em]
-  \item Schema e validation delle 5 collezioni MongoDB
-  \item Generatore di dati sintetici (seed)
-  \item Setup repository, Docker Compose e configurazione base
-  \item API CRUD per la gestione dei progetti
-  \item Sistema di permessi e gestione collaboratori
-  \item UI Dashboard "I miei Progetti"
-  \item Aggregation pipeline per statistiche (JOIN tra collezioni)
-  \item Creazione e ottimizzazione indici
-  \item Benchmark query con e senza indici
-  \item Documentazione finale e proof of concept
-\end{enumerate}
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabular}{@{}clp{7.6cm}c@{}}
+\toprule
+\textbf{Issue} & \textbf{Branch} & \textbf{Titolo} & \textbf{PR} \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Requisiti di progetto}} \\
+\#1 & \texttt{issue-1-schema-validation} & Schema e validation delle 5 collezioni MongoDB & \#11 \\
+\#2 & \texttt{issue-2-seed-data} & Generatore di dati sintetici (seed) & \#12 \\
+\#3 & \texttt{issue-3-docker-setup} & Setup repository, Docker Compose e configurazione base & \#13 \\
+\#4 & \texttt{issue-4-projects-crud} & API CRUD per la gestione dei progetti & \#14 \\
+\#5 & \texttt{issue-5-permissions} & Sistema di permessi e gestione collaboratori & \#18 \\
+\#6 & \texttt{issue-6-dashboard-ui} & UI Dashboard ``I miei Progetti'' & \#19 \\
+\#7 & \texttt{issue-7-aggregation} & Aggregation pipeline per statistiche (JOIN tra collezioni) & \#15 \\
+\#8 & \texttt{issue-8-indexing} & Creazione e ottimizzazione indici & \#16 \\
+\#9 & \texttt{issue-9-benchmark} & Benchmark query con e senza indici & \#17 \\
+\#10 & \texttt{issue-10-documentation} & Documentazione finale e proof of concept & \#28 \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{Estensioni oltre i requisiti minimi}} \\
+\#20 & \texttt{issue-20-auth} & Autenticazione con credenziali e token JWT & \#24 \\
+\#21 & \texttt{issue-21-latex-compiler} & Endpoint di compilazione LaTeX lato backend & \#25 \\
+\#22 & \texttt{issue-22-editor-ui} & Editor multi-pannello in stile Overleaf & \#26 \\
+\#23 & \texttt{issue-23-pdf-preview} & Pannello di anteprima del PDF compilato & \#27 \\
+\bottomrule
+\end{tabular}
+\caption{Mappatura completa issue $\to$ branch $\to$ pull request.}
+\end{table}
 
-Tutte le issue risultano chiuse e le relative pull request mergiate su \texttt{main} (l'ultima, PR \#28, relativa alla documentazione finale). Il sistema è interamente riproducibile da zero seguendo le istruzioni del README, non contiene credenziali reali nel repository, ed è stato verificato end-to-end (registrazione, login, creazione progetto, upload/editing file, compilazione LaTeX, gestione permessi, consultazione statistiche).
+Tutte le issue risultano chiuse e tutte e 14 le pull request mergiate su \texttt{main} (l'ultima, PR \#28, relativa alla documentazione finale); nessuna modifica è entrata nel branch principale al di fuori di una pull request revisionata. Il sistema è interamente riproducibile da zero seguendo le istruzioni del README, non contiene credenziali reali nel repository, ed è stato verificato end-to-end (registrazione, login, creazione progetto, upload/editing file, compilazione LaTeX, gestione permessi, consultazione statistiche).
 
 \end{document}
