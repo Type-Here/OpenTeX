@@ -156,3 +156,19 @@ POST /projects/{id}/compile
 ```
 
 Entry point selection: `main.tex` if present, otherwise the first `.tex` file alphabetically.
+
+### Instrumentation
+
+The pipeline is split into three phases, each timed with `time.perf_counter()` and logged
+on every request:
+
+| Phase | Steps | Field |
+|-------|-------|-------|
+| Database query | step 1 — `files.find({project_id, file_type: tex\|bib})` | `db_ms` |
+| Filesystem write | step 2 — writing the sources into the temp directory | `io_ms` |
+| LaTeX compilation | step 4 — the `tectonic` subprocess | `tex_ms` |
+
+The work is factored into `run_compilation(db, oid)` in `app/routers/compile.py`, which
+returns the PDF bytes together with the timings. The compile endpoint ignores the timings
+(no custom headers are added, the response is unchanged); `GET /stats/compile-benchmark`
+reuses the same function to average the phases over N runs of a fixed benchmark document.

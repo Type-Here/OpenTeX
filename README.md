@@ -166,6 +166,42 @@ _N = 10 runs per query, averaged. 1 warmup run excluded. Text "without index" us
 
 **Interpretation:** The activity logs query shows the largest speedup (10.9x) because it is the only query operating on a genuinely large collection (30 000 documents). Without the index, MongoDB performs a full COLLSCAN across all 30k log entries; with the index it resolves the same query in O(log n). The remaining queries show modest gains (~1.1–1.2x) because their target collections are small (≤ 356 documents): at that scale COLLSCAN and IXSCAN complete in similar wall-clock time, and the overhead of the Docker network round-trip dominates. The speedup from these indexes would grow proportionally with data volume — at 1M activity logs the gap would widen further, as expected from the O(n) vs O(log n) complexity difference.
 
+### Benchmark — compilation phases
+
+Measures where time is actually spent during a LaTeX compilation, splitting
+`POST /projects/{id}/compile` into three phases timed with `time.perf_counter()`:
+
+| Phase | What it measures |
+|-------|------------------|
+| `db_ms` | fetching the `tex`/`bib` source documents from MongoDB |
+| `io_ms` | writing those sources into the isolated temp directory |
+| `tex_ms` | the `tectonic` subprocess execution |
+
+The three timings are logged on every compile request. They are also exposed as an
+admin-only endpoint that averages them over several runs:
+
+```
+GET /stats/compile-benchmark?runs=5     # runs: 1–10, default 5
+```
+
+To keep results comparable, the benchmark always compiles the **same fixed document**:
+`seed/fixtures/benchmark.tex`, inserted by the seed script as `main.tex` of the
+admin-owned project **"Compilation Benchmark"**. Editing the fixture invalidates
+comparisons with previously recorded results. If the project is missing, the endpoint
+returns 422 asking you to run the seed script.
+
+One warm-up compilation is always run and excluded from the averages, because Tectonic
+downloads and caches LaTeX packages on first use.
+
+**From the UI:** log in as `admin@opentex.org`, open the *Benchmarks* page and use the
+**Run Compilation Benchmark** button in the *Benchmark — Compilation phases* section.
+It performs real compilations, so it takes roughly 30–60 s.
+
+**Expected result:** the database phase lands in the low milliseconds while Tectonic takes
+seconds, so MongoDB accounts for a fraction of a percent of the total. That is the honest
+finding: the bottleneck of the compilation pipeline is the external LaTeX compiler, not the
+data layer.
+
 ## Indexes (Issue #8)
 
 Creates and verifies all indexes via a versioned script. Must be run after the schema validation script and seed data load.
