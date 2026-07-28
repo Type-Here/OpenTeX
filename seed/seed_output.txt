@@ -1,10 +1,12 @@
 === OpenTeX Seed completed ===
 users                inserted:     51
-projects             inserted:    100
-files                inserted:    337
-permissions          inserted:    251
+projects             inserted:    101
+files                inserted:    338
+permissions          inserted:    252
 activity_logs        inserted:  30000
-Total time: 1.8s
+Total time: 0.6s
+
+Benchmark fixture:   "Compilation Benchmark" (admin@opentex.org, main.tex)
 
 --- Sample credentials (password: 'password') ---
   admin@opentex.org                        Admin OpenTeX [ADMIN]

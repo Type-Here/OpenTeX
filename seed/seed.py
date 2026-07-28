@@ -66,6 +66,16 @@ LATEX_TAGS = [
     "relazione",
 ]
 
+# ── Fixed compilation-benchmark project ──────────────────────────────────────
+# Dedicated admin-owned project compiled by GET /stats/compile-benchmark.
+# Keep BENCHMARK_PROJECT_TITLE in sync with backend/app/routers/stats.py.
+BENCHMARK_PROJECT_TITLE = "Compilation Benchmark"
+BENCHMARK_PROJECT_ID = ObjectId("000000000000000000000010")
+BENCHMARK_FILE_ID = ObjectId("000000000000000000000011")
+BENCHMARK_PERMISSION_ID = ObjectId("000000000000000000000012")
+BENCHMARK_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "benchmark.tex"
+BENCHMARK_CREATED_AT = datetime(2024, 1, 1)
+
 # Typical filenames by type
 _FILE_NAMES: dict[str, list[str]] = {
     "tex": ["main.tex", "capitolo1.tex", "capitolo2.tex", "appendice.tex", "intro.tex"],
@@ -337,6 +347,65 @@ def generate_files(
     return files
 
 
+def upsert_benchmark_project(db) -> dict:
+    """
+    Create (or refresh) the fixed benchmark project owned by the admin account.
+
+    The project holds the `seed/fixtures/benchmark.tex` fixture as main.tex and
+    is the target of GET /stats/compile-benchmark. Fixed _ids plus upserts make
+    the operation idempotent: re-running the seed never duplicates it.
+
+    Returns the number of documents written per collection.
+    """
+    content = BENCHMARK_FIXTURE_PATH.read_text(encoding="utf-8")
+
+    project = {
+        "_id": BENCHMARK_PROJECT_ID,
+        "title": BENCHMARK_PROJECT_TITLE,
+        "abstract": (
+            "Fixed document compiled by the compilation-phase benchmark. "
+            "Do not edit: changing it invalidates comparisons with past results."
+        ),
+        "tags": ["latex", "benchmark"],
+        "owner_id": ADMIN_USER["_id"],
+        "created_at": BENCHMARK_CREATED_AT,
+        "updated_at": BENCHMARK_CREATED_AT,
+        "status": "active",
+    }
+
+    benchmark_file = {
+        "_id": BENCHMARK_FILE_ID,
+        "project_id": BENCHMARK_PROJECT_ID,
+        "filename": "main.tex",
+        "file_type": "tex",
+        "created_at": BENCHMARK_CREATED_AT,
+        "uploaded_by": ADMIN_USER["_id"],
+        "size_bytes": len(content.encode("utf-8")),
+        "content": content,
+    }
+
+    permission = {
+        "_id": BENCHMARK_PERMISSION_ID,
+        "user_id": ADMIN_USER["_id"],
+        "project_id": BENCHMARK_PROJECT_ID,
+        "role": "Admin",
+        "granted_at": BENCHMARK_CREATED_AT,
+        "granted_by": ADMIN_USER["_id"],
+    }
+
+    try:
+        db[COLLECTION_PROJECTS].replace_one({"_id": BENCHMARK_PROJECT_ID}, project, upsert=True)
+        db[COLLECTION_FILES].replace_one({"_id": BENCHMARK_FILE_ID}, benchmark_file, upsert=True)
+        db[COLLECTION_PERMISSIONS].replace_one(
+            {"_id": BENCHMARK_PERMISSION_ID}, permission, upsert=True
+        )
+    except PyMongoError as exc:
+        print(f"[ERROR] Cannot upsert the benchmark project: {exc}")
+        sys.exit(1)
+
+    return {"projects": 1, "files": 1, "permissions": 1}
+
+
 def generate_activity_logs(
     n: int,
     users: list[dict],
@@ -437,6 +506,8 @@ def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> Non
         f"{'activity_logs':<20} inserted: {counts['activity_logs']:>6}",
         f"Total time: {elapsed:.1f}s",
         "",
+        f'Benchmark fixture:   "{BENCHMARK_PROJECT_TITLE}" ({ADMIN_USER["email"]}, main.tex)',
+        "",
         "--- Sample credentials (password: 'password') ---",
     ]
     for u in sample_users:
@@ -503,6 +574,10 @@ def main() -> None:
         "permissions": insert_batch(db[COLLECTION_PERMISSIONS], permissions),
         "activity_logs": insert_batch(db[COLLECTION_ACTIVITY_LOGS], logs),
     }
+
+    print("Upserting the fixed benchmark project...")
+    for name, written in upsert_benchmark_project(db).items():
+        counts[name] += written
 
     elapsed = time.perf_counter() - t0
     print()
