@@ -4,11 +4,11 @@ projects             inserted:    100
 files                inserted:    337
 permissions          inserted:    251
 activity_logs        inserted:  30000
-Total time: 0.3s
+Total time: 1.8s
 
 --- Sample credentials (password: 'password') ---
-  admin@opentex.org [ADMIN]
-  leonegioele@example.org
-  queriniamedeo@example.org
-  zamoranigaetano@example.net
-  ricciottilettiere@example.org
+  admin@opentex.org                        Admin OpenTeX [ADMIN]
+  leonegioele@example.org                  Eugenia Caracciolo
+  queriniamedeo@example.org                Claudio Verdone
+  zamoranigaetano@example.net              Gianpaolo Tirabassi
+  ricciottilettiere@example.org            Alina Puccini

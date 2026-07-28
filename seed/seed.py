@@ -441,7 +441,8 @@ def write_summary(counts: dict, elapsed: float, sample_users: list[dict]) -> Non
     ]
     for u in sample_users:
         admin_tag = " [ADMIN]" if u.get("is_admin") else ""
-        lines.append(f"  {u['email']}{admin_tag}")
+        full_name = f"{u['first_name']} {u['last_name']}"
+        lines.append(f"  {u['email']:<40} {full_name}{admin_tag}")
     summary = "\n".join(lines)
     print(summary)
 
