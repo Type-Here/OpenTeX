@@ -42,6 +42,20 @@
   padding: 32px;
 }
 
+.sectionTitle,
+.sectionTitleFirst {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  margin-top: 44px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
 .description {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -159,6 +173,11 @@
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.totalRow {
+  font-weight: 600;
+  background: #fafafa;
 }
 
 .dash {
