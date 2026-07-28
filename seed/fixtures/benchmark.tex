@@ -1,0 +1,36 @@
+% ---------------------------------------------------------------------------
+% Fixed fixture for the compilation benchmark (GET /stats/compile-benchmark).
+%
+% This document is compiled repeatedly to measure the db / io / tex phases of
+% the compilation pipeline. Do NOT edit it casually: any change to its content
+% alters the compilation time and invalidates comparisons with results recorded
+% from previous runs.
+%
+% Constraints: no external packages beyond the base set, so it compiles fast
+% and offline once Tectonic has populated its package cache.
+% ---------------------------------------------------------------------------
+\documentclass[11pt]{article}
+
+\title{OpenTeX Compilation Benchmark}
+\author{OpenTeX}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Purpose}
+This document is the fixed target of the OpenTeX compilation benchmark. It is
+compiled several times in a row so that the time spent querying MongoDB, the
+time spent writing the sources to a temporary directory, and the time spent in
+the Tectonic compiler can be measured separately.
+
+\section{Formula}
+A short formula keeps the document representative of real LaTeX sources without
+making it slow to typeset:
+
+\begin{equation}
+    \sum_{k=1}^{n} k = \frac{n(n+1)}{2}
+\end{equation}
+
+\end{document}

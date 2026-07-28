@@ -5,3 +5,6 @@ export const getStats = (params) =>
 
 export const runBenchmarks = () =>
   client.get('/stats/benchmarks').then(r => r.data)
+
+export const runCompileBenchmark = (runs = 5) =>
+  client.get('/stats/compile-benchmark', { params: { runs } }).then(r => r.data)

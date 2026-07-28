@@ -14,3 +14,17 @@ class BenchmarkResult(BaseModel):
     with_ms: float
     without_ms: float
     speedup: float
+
+
+class CompileBenchmarkResult(BaseModel):
+    """Mean duration of each LaTeX compilation phase over `runs` measured runs."""
+
+    project_title: str
+    runs: int
+    db_ms: float
+    io_ms: float
+    tex_ms: float
+    total_ms: float
+    db_pct: float
+    io_pct: float
+    tex_pct: float

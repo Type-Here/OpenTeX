@@ -8,7 +8,8 @@ from pymongo.errors import OperationFailure
 
 from app.database import get_database
 from app.dependencies import get_admin_user
-from app.models.stats import BenchmarkResult, DepartmentStat
+from app.models.stats import BenchmarkResult, CompileBenchmarkResult, DepartmentStat
+from app.routers.compile import CompileTimings, run_compilation
 
 router = APIRouter()
 
@@ -198,3 +199,76 @@ async def run_benchmarks(_: str = Depends(get_admin_user)):
         results.append(BenchmarkResult(**result))
 
     return results
+
+
+# ── Compilation phase benchmark ──────────────────────────────────────────────
+
+# Keep in sync with BENCHMARK_PROJECT_TITLE in seed/seed.py
+_BENCHMARK_PROJECT_TITLE = "Compilation Benchmark"
+
+
+def _pct(value: float, total: float) -> float:
+    """Share of the total, in percent, rounded to 3 decimals."""
+    return round(value / total * 100, 3) if total > 0 else 0.0
+
+
+def _failure_reason(exc: HTTPException) -> str:
+    """Flatten a compile HTTPException detail (str or {error, log}) into one line."""
+    if isinstance(exc.detail, dict):
+        return str(exc.detail.get("error", "Compilation failed"))
+    return str(exc.detail)
+
+
+async def _compile_once(db, oid) -> CompileTimings:
+    """Run one full compilation of the benchmark project and return its timings."""
+    try:
+        _, _, timings = await run_compilation(db, oid)
+    except HTTPException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Benchmark compilation failed: {_failure_reason(e)}",
+        )
+    return timings
+
+
+@router.get("/compile-benchmark", response_model=CompileBenchmarkResult)
+async def run_compile_benchmark(
+    runs: int = Query(default=5, ge=1, le=10),
+    _: str = Depends(get_admin_user),
+):
+    """Compile the fixed benchmark document `runs` times and average each phase."""
+    db = get_database()
+
+    project = await db[_PROJECTS].find_one({"title": _BENCHMARK_PROJECT_TITLE}, {"_id": 1})
+    if project is None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Benchmark project '{_BENCHMARK_PROJECT_TITLE}' not found "
+                "— run the seed script first."
+            ),
+        )
+
+    oid = project["_id"]
+
+    # Warm-up run, excluded from the averages: Tectonic caches packages on first use
+    await _compile_once(db, oid)
+
+    measured = [await _compile_once(db, oid) for _ in range(runs)]
+
+    db_ms = sum(t.db_ms for t in measured) / runs
+    io_ms = sum(t.io_ms for t in measured) / runs
+    tex_ms = sum(t.tex_ms for t in measured) / runs
+    total_ms = db_ms + io_ms + tex_ms
+
+    return CompileBenchmarkResult(
+        project_title=_BENCHMARK_PROJECT_TITLE,
+        runs=runs,
+        db_ms=round(db_ms, 3),
+        io_ms=round(io_ms, 3),
+        tex_ms=round(tex_ms, 3),
+        total_ms=round(total_ms, 3),
+        db_pct=_pct(db_ms, total_ms),
+        io_pct=_pct(io_ms, total_ms),
+        tex_pct=_pct(tex_ms, total_ms),
+    )
