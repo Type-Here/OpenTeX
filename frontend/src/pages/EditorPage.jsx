@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
+import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { latex } from 'codemirror-lang-latex'
 import { listProjectFiles, updateFileContent, createProjectFile, deleteFile, compileProject } from '../api/files'
 import styles from '../styles/EditorPage.module.css'
 
 const EDITABLE_TYPES = ['tex', 'bib']
+
+// Smallest usable width for either side of the split, in pixels.
+const MIN_PANE_PX = 280
+
+// Keep the editor/preview split within the minimum width of both panes. When the
+// window is too narrow to honour both, the divider is pinned to the centre.
+function clampRatio(ratio, width) {
+  if (!width) return ratio
+  const min = Math.min(MIN_PANE_PX / width, 0.5)
+  return Math.max(min, Math.min(1 - min, ratio))
+}
 
 function pickInitialFile(files) {
   const editable = files.filter(f => EDITABLE_TYPES.includes(f.file_type))
@@ -30,7 +41,12 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
   const [newFileType, setNewFileType] = useState('tex')
   const [creatingFile, setCreatingFile] = useState(false)
   const [createError, setCreateError] = useState(null)
+  const [editorRatio, setEditorRatio] = useState(0.55)
+  const [dragging, setDragging] = useState(false)
   const saveTimeoutRef = useRef(null)
+  const splitRef = useRef(null)
+
+  const previewOpen = Boolean(pdfUrl || compileError)
 
   useEffect(() => {
     setLoadingFiles(true)
@@ -59,6 +75,35 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [selectedFile, dirty, saving, content])
+
+  // A ratio valid at one window size can violate MIN_PANE_PX at another.
+  useEffect(() => {
+    if (!previewOpen) return
+    const reclamp = () => {
+      const el = splitRef.current
+      if (el) setEditorRatio(r => clampRatio(r, el.getBoundingClientRect().width))
+    }
+    reclamp()
+    window.addEventListener('resize', reclamp)
+    return () => window.removeEventListener('resize', reclamp)
+  }, [previewOpen])
+
+  // Pointer capture keeps the drag alive while the cursor is over the PDF iframe,
+  // which would otherwise swallow the events.
+  const handleDividerDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDragging(true)
+  }
+
+  const handleDividerMove = (e) => {
+    if (!dragging || !splitRef.current) return
+    const { left, width } = splitRef.current.getBoundingClientRect()
+    setEditorRatio(clampRatio((e.clientX - left) / width, width))
+  }
+
+  // The browser releases the capture implicitly on pointerup and on pointercancel,
+  // so this single handler also covers the pointer being lost outside the window.
+  const handleDragEnd = () => setDragging(false)
 
   const showSaveResult = (result) => {
     setSaveResult(result)
@@ -267,51 +312,72 @@ export default function EditorPage({ projectId, projectTitle, onBack }) {
           })}
         </aside>
 
-        <div className={styles.editorArea}>
-          {!selectedFile ? (
-            <div className={styles.editorPlaceholder}>
-              {files.some(f => EDITABLE_TYPES.includes(f.file_type))
-                ? 'Select a .tex or .bib file from the sidebar'
-                : 'No editable files in this project'}
-            </div>
-          ) : (
-            <CodeMirror
-              value={content}
-              extensions={[latex()]}
-              onChange={handleContentChange}
-              style={{ flex: 1, fontSize: '14px', overflow: 'auto' }}
-              height="100%"
-            />
-          )}
-
-        </div>
-
-        {(pdfUrl || compileError) && (
-          <div className={styles.previewPane}>
-            <div className={styles.previewHeader}>
-              <span>Preview</span>
-              <div className={styles.previewActions}>
-                {pdfUrl && (
-                  <a
-                    href={pdfUrl}
-                    download={`${projectTitle}.pdf`}
-                    className={styles.downloadBtn}
-                    title="Download PDF"
-                  >↓</a>
-                )}
-                <button
-                  className={styles.dismissBtn}
-                  onClick={() => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); setCompileError(null) }}
-                  title="Close preview"
-                >✕</button>
+        <div
+          ref={splitRef}
+          className={`${styles.splitArea}${dragging ? ` ${styles.dragging}` : ''}`}
+        >
+          <div
+            className={styles.editorArea}
+            style={previewOpen ? { flex: `0 0 ${editorRatio * 100}%` } : undefined}
+          >
+            {!selectedFile ? (
+              <div className={styles.editorPlaceholder}>
+                {files.some(f => EDITABLE_TYPES.includes(f.file_type))
+                  ? 'Select a .tex or .bib file from the sidebar'
+                  : 'No editable files in this project'}
               </div>
-            </div>
-            {pdfUrl
-              ? <iframe src={pdfUrl} className={styles.pdfFrame} title="Compiled PDF" />
-              : <pre className={styles.previewErrorBody}>{compileError}</pre>
-            }
+            ) : (
+              <CodeMirror
+                value={content}
+                extensions={[latex(), EditorView.lineWrapping]}
+                onChange={handleContentChange}
+                style={{ flex: 1, fontSize: '14px', overflow: 'auto' }}
+                height="100%"
+              />
+            )}
+
           </div>
-        )}
+
+          {previewOpen && (
+            <>
+              <div
+                className={styles.divider}
+                onPointerDown={handleDividerDown}
+                onPointerMove={handleDividerMove}
+                onLostPointerCapture={handleDragEnd}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize editor and preview"
+                title="Drag to resize"
+              />
+
+              <div className={styles.previewPane}>
+                <div className={styles.previewHeader}>
+                  <span>Preview</span>
+                  <div className={styles.previewActions}>
+                    {pdfUrl && (
+                      <a
+                        href={pdfUrl}
+                        download={`${projectTitle}.pdf`}
+                        className={styles.downloadBtn}
+                        title="Download PDF"
+                      >↓</a>
+                    )}
+                    <button
+                      className={styles.dismissBtn}
+                      onClick={() => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); setPdfUrl(null); setCompileError(null) }}
+                      title="Close preview"
+                    >✕</button>
+                  </div>
+                </div>
+                {pdfUrl
+                  ? <iframe src={pdfUrl} className={styles.pdfFrame} title="Compiled PDF" />
+                  : <pre className={styles.previewErrorBody}>{compileError}</pre>
+                }
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className={styles.statusBar}>

@@ -270,6 +270,37 @@
   color: var(--accent);
 }
 
+.splitArea {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* While dragging, the cursor must not change over child elements and the PDF
+   iframe must not react to the pointer passing over it. */
+.splitArea.dragging {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.splitArea.dragging .pdfFrame {
+  pointer-events: none;
+}
+
+.divider {
+  flex: 0 0 6px;
+  background: #e2e4e9;
+  cursor: col-resize;
+  transition: background 0.15s;
+  touch-action: none;
+}
+
+.divider:hover,
+.splitArea.dragging .divider {
+  background: var(--accent);
+}
+
 .editorArea {
   flex: 1;
   min-width: 0;
