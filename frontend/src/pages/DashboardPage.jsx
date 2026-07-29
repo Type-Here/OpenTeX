@@ -10,27 +10,39 @@ export default function DashboardPage({ onOpenProject, onNavigate }) {
   const [myProjects, setMyProjects] = useState([])
   const [sharedProjects, setSharedProjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [search, setSearch] = useState('')
+  const [activeSearch, setActiveSearch] = useState('')
 
-  const loadProjects = async () => {
-    setLoading(true)
+  const loadProjects = async (q = activeSearch) => {
+    setSearching(true)
     setError(null)
     try {
+      const params = q ? { q } : {}
       const [owned, shared] = await Promise.all([
-        listProjects({ owner_id: user.id }),
-        listProjects({ member_id: user.id }),
+        listProjects({ owner_id: user.id, ...params }),
+        listProjects({ member_id: user.id, ...params }),
       ])
       setMyProjects(owned)
       setSharedProjects(shared)
-    } catch {
-      setError('Failed to load projects.')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to load projects.')
     } finally {
+      setSearching(false)
       setLoading(false)
     }
   }
 
-  useEffect(() => { loadProjects() }, [])
+  // Debounce typing so each keystroke does not hit the API.
+  useEffect(() => {
+    const timer = setTimeout(() => setActiveSearch(search.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Also covers the initial load, when activeSearch is still empty.
+  useEffect(() => { loadProjects(activeSearch) }, [activeSearch])
 
   return (
     <div className={styles.page}>
@@ -56,13 +68,37 @@ export default function DashboardPage({ onOpenProject, onNavigate }) {
           </button>
         </div>
 
+        <div className={styles.searchRow}>
+          <input
+            className={styles.searchInput}
+            type="search"
+            value={search}
+            placeholder="Search projects by title or abstract…"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className={styles.clearBtn} onClick={() => setSearch('')}>
+              Clear
+            </button>
+          )}
+          <span className={styles.searchHint}>
+            {searching && !loading
+              ? 'Searching…'
+              : 'MongoDB full-text index on title + abstract — matches whole words'}
+          </span>
+        </div>
+
         {loading && <p className={styles.message}>Loading…</p>}
         {error && <p className={styles.error}>{error}</p>}
 
         {!loading && !error && (
           <>
             {myProjects.length === 0 ? (
-              <p className={styles.empty}>No projects yet. Create your first one!</p>
+              <p className={styles.empty}>
+                {activeSearch
+                  ? `No projects of yours match “${activeSearch}”.`
+                  : 'No projects yet. Create your first one!'}
+              </p>
             ) : (
               <div className={styles.grid}>
                 {myProjects.map((p) => (
@@ -99,7 +135,7 @@ export default function DashboardPage({ onOpenProject, onNavigate }) {
         <ProjectFormModal
           mode="create"
           onClose={() => setShowCreate(false)}
-          onSaved={() => { setShowCreate(false); loadProjects() }}
+          onSaved={() => { setShowCreate(false); setSearch(''); loadProjects('') }}
         />
       )}
     </div>
