@@ -273,13 +273,38 @@ Base URL: `http://localhost:8000`
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/projects/` | Create a new project |
-| `GET` | `/projects/` | List all projects (optional `?owner_id=`) |
+| `GET` | `/projects/` | List all projects (optional `?owner_id=`, `?member_id=`, `?q=`) |
 | `GET` | `/projects/{id}` | Get a single project by ID |
 | `PUT` | `/projects/{id}` | Update title / abstract / tags |
 | `DELETE` | `/projects/{id}` | Delete a project |
 | `GET` | `/projects/{id}/files` | List files linked to a project |
 
 Interactive documentation: `http://localhost:8000/docs`
+
+### Full-text project search
+
+`GET /projects/` accepts a `q` parameter that runs a MongoDB `$text` query against the
+`projects_text_search` index (`title` + `abstract`, see [Indexes](#indexes-issue-8)).
+It combines with `owner_id` / `member_id`, so the same search can be scoped to the
+projects a user owns or collaborates on. Results are sorted by `textScore` relevance.
+
+```bash
+# Search across all projects
+curl "http://localhost:8000/projects/?q=quantum"
+
+# Search only within the projects owned by one user
+curl "http://localhost:8000/projects/?owner_id=<user_id>&q=quantum"
+```
+
+`$text` matches **whole words** (stemmed, case-insensitive), not partial prefixes:
+`quantum` matches "Quantum computing", `quant` does not. An empty or whitespace-only
+`q` is ignored and the full list is returned.
+
+Because `seed.py --drop` drops the collections, and their indexes with them, the backend
+re-creates `projects_text_search` at startup (`app/main.py` lifespan, idempotent), so search
+keeps working after a reseed without re-running the index script. If the index is missing
+anyway (e.g. while `run_benchmark.py` has it temporarily dropped), the endpoint returns
+`503` with an explanatory message rather than a generic 500.
 
 ---
 
@@ -416,6 +441,8 @@ docker compose up --build -d
 
 - **Login / Register**: email + password form with toggle between sign-in and registration
 - **Dashboard "My Projects"**: owned projects + "Shared with me" section
+- **Project search**: debounced search field that filters both sections server-side via the
+  `projects_text_search` index (see [Full-text project search](#full-text-project-search))
 - **Create project**: modal form with title, abstract, and tags
 - **Edit / Delete project**: Editor role or above; delete owner-only with confirmation
 - **Collaborator management**: assign/revoke Admin / Editor / Viewer roles (owner only)

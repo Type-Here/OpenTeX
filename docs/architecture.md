@@ -94,6 +94,15 @@ Five indexes are maintained to keep query latency acceptable at scale:
 
 The `activity_logs` index delivers the largest benefit (10.9× speedup) because the collection holds 30 000+ documents — the only one where a full COLLSCAN is meaningfully slower than IXSCAN.
 
+### Text index in the application layer
+
+`projects_text_search` is not only a benchmark artefact: the dashboard search field calls
+`GET /projects/?q=<terms>` (optionally scoped by `owner_id` or `member_id`), which builds a
+`$text` filter and sorts by `{"$meta": "textScore"}`. MongoDB allows a single text index per
+collection, so this query is the reason `title` and `abstract` share one compound text index
+rather than two separate ones. Matching is whole-word and stemmed — a deliberate trade-off
+against substring matching, which a text index cannot serve.
+
 ---
 
 ## Aggregation pipeline (JOIN)
