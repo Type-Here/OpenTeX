@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pymongo import TEXT
 
 from app.config import settings
 from app.database import get_database, ping_database
@@ -39,6 +40,14 @@ async def lifespan(app: FastAPI):
         db = get_database()
         await db["users"].create_index("email", unique=True)
         logger.info("Unique index on users.email ensured.")
+        # The dashboard search runs a $text query, which MongoDB rejects outright
+        # when no text index exists — and `seed.py --drop` deletes it along with
+        # the collection. Ensuring it here keeps the endpoint working without a
+        # manual re-run of scripts.indexes.create_indexes.
+        await db["projects"].create_index(
+            [("title", TEXT), ("abstract", TEXT)], name="projects_text_search"
+        )
+        logger.info("Text index projects_text_search ensured.")
     yield
     logger.info("OpenTeX backend shutdown.")
 

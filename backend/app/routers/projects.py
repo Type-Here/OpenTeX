@@ -5,6 +5,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pymongo import ReturnDocument
+from pymongo.errors import OperationFailure
 
 from app.database import get_database
 from app.dependencies import get_current_user
@@ -45,19 +46,51 @@ async def create_project(body: ProjectCreate):
 async def list_projects(
     owner_id: Optional[str] = Query(default=None),
     member_id: Optional[str] = Query(default=None, description="Return projects where this user has an explicit permission entry"),
+    q: Optional[str] = Query(
+        default=None,
+        description=(
+            "Full-text search over title and abstract, served by the "
+            "`projects_text_search` index. Matches whole words (stemmed), "
+            "not partial prefixes. Results are sorted by relevance."
+        ),
+    ),
 ):
     db = get_database()
+    query: dict = {}
     if member_id is not None:
         perms = await db["permissions"].find(
             {"user_id": _oid(member_id)}, {"project_id": 1}
         ).to_list(length=None)
-        project_ids = [p["project_id"] for p in perms]
-        cursor = db[_PROJECTS].find({"_id": {"$in": project_ids}})
+        query["_id"] = {"$in": [p["project_id"] for p in perms]}
     elif owner_id is not None:
-        cursor = db[_PROJECTS].find({"owner_id": _oid(owner_id)})
+        query["owner_id"] = _oid(owner_id)
+
+    search = q.strip() if q else ""
+    if not search:
+        cursor = db[_PROJECTS].find(query)
     else:
-        cursor = db[_PROJECTS].find({})
-    return [ProjectResponse.from_mongo(doc) async for doc in cursor]
+        # $text uses the projects_text_search index; the textScore meta field is
+        # projected only to sort by relevance and is dropped by ProjectResponse.
+        query["$text"] = {"$search": search}
+        cursor = db[_PROJECTS].find(
+            query, {"score": {"$meta": "textScore"}}
+        ).sort([("score", {"$meta": "textScore"})])
+
+    try:
+        return [ProjectResponse.from_mongo(doc) async for doc in cursor]
+    except OperationFailure as exc:
+        # Code 27 = IndexNotFound: the text index is missing, which happens while
+        # run_benchmark.py has it temporarily dropped. Report it as a transient
+        # search outage instead of an opaque 500.
+        if exc.code == 27:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Text search unavailable: the projects_text_search index is missing. "
+                    "Run `python -m scripts.indexes.create_indexes` or restart the backend."
+                ),
+            )
+        raise
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
