@@ -55,7 +55,7 @@
 \begin{abstract}
 \vspace{-0.5em}
 \noindent
-OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti LaTeX, sviluppato come progetto per il corso di Basi di Dati 2 (NoSQL). Il sistema adotta MongoDB come motore di persistenza, un backend FastAPI/Motor asincrono e un frontend React/Vite, con compilazione dei documenti tramite il motore \textit{Tectonic}. Questa relazione descrive l'installazione, l'architettura, il modello dei dati, le scelte CAP/BASE, le operazioni CRUD, la generazione di dati sintetici (ETL), gli indici e i relativi benchmark, e la pipeline di aggregazione (JOIN) realizzata sul progetto, riportando esclusivamente metriche misurate sul sistema realmente implementato.
+OpenTeX è un ambiente collaborativo self-hosted per la scrittura di documenti LaTeX, sviluppato come progetto per il corso di Basi di Dati 2 (NoSQL). Il sistema adotta MongoDB come motore di persistenza, un backend FastAPI/Motor asincrono e un frontend React/Vite, con compilazione dei documenti tramite il motore \textit{Tectonic}. Questa relazione descrive l'installazione, l'architettura, il modello dei dati, le scelte CAP/BASE, le operazioni CRUD, la generazione di dati sintetici (ETL), gli indici e i relativi benchmark, e la pipeline di aggregazione (JOIN) realizzata sul progetto, riportando le metriche misurate sul sistema.
 \end{abstract}
 
 \tableofcontents
@@ -91,7 +91,7 @@ Orchestrazione & Docker Compose & 3 servizi: mongo, backend, frontend \\
 \section{Installazione}
 % =====================================================
 
-Il sistema è interamente containerizzato; l'unico prerequisito è Docker (\textgreater= 24.0) e Docker Compose (\textgreater= 2.20).
+Il sistema è interamente containerizzato; l'unico prerequisito è Docker ($\geq 24.0$) e Docker Compose ($\geq 2.20$).
 
 \subsection{Procedura}
 
@@ -233,7 +233,7 @@ La compilazione avviene in una directory temporanea isolata, con timeout e paral
 
 L'entry point è \texttt{main.tex} se presente, altrimenti il primo file \texttt{.tex} in ordine alfabetico.
 
-Le tre componenti principali del flusso -- query al database (passo 1), scrittura su filesystem (passo 2) ed esecuzione del compilatore (passo 4) -- sono strumentate e misurate separatamente; la relativa analisi è riportata nella Sezione~\ref{sec:compile-bench}.
+Le tre componenti principali del flusso, query al database (passo 1), scrittura su filesystem (passo 2) ed esecuzione del compilatore (passo 4), sono strumentate e misurate separatamente; la relativa analisi è riportata nella Sezione~\ref{sec:compile-bench}.
 
 % =====================================================
 \section{Modello CAP e proprietà BASE}
@@ -243,9 +243,9 @@ Le tre componenti principali del flusso -- query al database (passo 1), scrittur
 OpenTeX gira su una singola istanza/replica MongoDB. Il sistema è progettato secondo il paradigma \textbf{AP} del teorema CAP:
 
 \begin{itemize}[leftmargin=2.2em]
-  \item \textbf{Availability} -- le richieste di lettura e scrittura hanno successo anche in presenza di guasti transitori.
-  \item \textbf{Partition Tolerance} -- il sistema continua a operare in presenza di partizioni di rete.
-  \item \textbf{Consistency} (rilassata) -- MongoDB garantisce solo atomicità a livello di singolo documento; non esistono transazioni multi-documento o cross-collection. Sono quindi possibili letture stale in casi limite (es. un documento \texttt{projects} aggiornato mentre viene letto il relativo \texttt{permissions}).
+  \item \textbf{Availability}: le richieste di lettura e scrittura hanno successo anche in presenza di guasti transitori.
+  \item \textbf{Partition Tolerance}: il sistema continua a operare in presenza di partizioni di rete.
+  \item \textbf{Consistency} (rilassata): MongoDB garantisce solo atomicità a livello di singolo documento; non esistono transazioni multi-documento o cross-collection. Sono quindi possibili letture stale in casi limite (es. un documento \texttt{projects} aggiornato mentre viene letto il relativo \texttt{permissions}).
 \end{itemize}
 
 \begin{table}[h!]
@@ -255,12 +255,14 @@ OpenTeX gira su una singola istanza/replica MongoDB. Il sistema è progettato se
 \textbf{Proprietà BASE} & \textbf{Implementazione in OpenTeX} \\
 \midrule
 \textbf{B}asically Available & FastAPI risponde immediatamente; nessun lock globale \\
-\textbf{S}oft state & Gli aggregati derivati (es.\ conteggio collaboratori) sono calcolati on-demand, non cacheati \\
-\textbf{E}ventually consistent & I log di attività e le modifiche ai permessi si propagano alla lettura successiva; nessuna sincronizzazione write-ahead \\
+\textbf{S}oft state & Gli aggregati derivati (es.\ conteggio collaboratori) sono calcolati on-demand, non in cache \\
+\textbf{E}ventually \newline consistent & I log di attività e le modifiche ai permessi si propagano alla lettura successiva; nessuna sincronizzazione write-ahead \\
 \bottomrule
 \end{tabular}
 \caption{Semantica BASE adottata da OpenTeX.}
 \end{table}
+
+\pagebreak
 
 % =====================================================
 \section{API e operazioni CRUD}
@@ -279,7 +281,7 @@ Il backend espone 7 router FastAPI con operazioni CRUD complete sulle risorse pr
  & POST & \texttt{/auth/login} & Login, rilascio JWT \\
  & GET & \texttt{/auth/departments} & Elenco dipartimenti \\
 \texttt{projects} & POST & \texttt{/projects/} & Creazione progetto \\
- & GET & \texttt{/projects/} & Elenco progetti (filtro \texttt{owner\_id}) \\
+ & GET & \texttt{/projects/} & Elenco progetti (filtri \texttt{owner\_id}, \texttt{member\_id}; ricerca full-text \texttt{q}) \\
  & GET & \texttt{/projects/\{id\}} & Dettaglio progetto \\
  & PUT & \texttt{/projects/\{id\}} & Aggiornamento progetto \\
  & DELETE & \texttt{/projects/\{id\}} & Cancellazione progetto \\
@@ -300,8 +302,6 @@ Il backend espone 7 router FastAPI con operazioni CRUD complete sulle risorse pr
 \end{tabular}
 \caption{Endpoint REST implementati (21 endpoint su 7 router).}
 \end{table}
-
-\newpage
 
 \subsection{Controllo accessi (RBAC)}
 
@@ -374,8 +374,10 @@ python seed/seed.py --users 50 --projects 100 --logs 30000 --drop
 \texttt{email\_1} & \texttt{users} & \texttt{email} & Univoco \\
 \bottomrule
 \end{tabular}
-\caption{Indici del sistema. I primi cinque sono creati da \texttt{scripts/indexes/create\_indexes.py} e verificati con \texttt{explain()}; l'indice univoco su \texttt{users.email} è garantito all'avvio dell'applicazione (\texttt{backend/app/main.py}) e assolve una duplice funzione: accelera la ricerca dell'utente in fase di login e impone a livello di database l'unicità dell'indirizzo email in fase di registrazione.}
+\caption{Indici del sistema. I primi cinque sono creati da \texttt{scripts/indexes/create\_indexes.py} e verificati con \texttt{explain()}. Due di essi sono inoltre garantiti all'avvio dell'applicazione (\texttt{backend/app/main.py}). Il primo è un indice univoco su \texttt{users.email}, che assolve una duplice funzione: accelera la ricerca dell'utente in fase di login e impone a livello di database l'unicità dell'indirizzo email in fase di registrazione. Il secondo è \texttt{projects\_text\_search}, richiesto dalla ricerca della dashboard: in sua assenza MongoDB rifiuta la query \texttt{\$text} con errore \texttt{IndexNotFound}, condizione che si presenta dopo ogni esecuzione del seed con \texttt{--drop}, che elimina le collezioni e con esse i loro indici.}
 \end{table}
+
+\newpage
 
 \subsection{Risultati del benchmark}
 
@@ -396,9 +398,22 @@ Files by \texttt{project\_id} & 1.609\,ms & 1.979\,ms & 1.2$\times$ \\
 \bottomrule
 \end{tabular}
 \caption{Tempi medi di esecuzione su 10 run (\texttt{scripts/benchmark/run\_benchmark.py}).}
+\label{tab:bench}
 \end{table}
 
-\textbf{Interpretazione.} Lo speedup più marcato (10.9$\times$) si osserva sulla query su \texttt{activity\_logs}, l'unica collezione realmente di grandi dimensioni (30\,000 documenti): senza indice MongoDB esegue una scansione completa (\texttt{COLLSCAN}) su tutti i 30k documenti, con indice risolve la stessa query in $O(\log n)$ (\texttt{IXSCAN}). Le altre query mostrano guadagni modesti (1.1--1.2$\times$) perché le collezioni coinvolte sono piccole ($\le$ 356 documenti): a questa scala \texttt{COLLSCAN} e \texttt{IXSCAN} hanno tempi di esecuzione comparabili, e l'overhead della rete Docker domina la misura. Lo speedup di questi indici crescerebbe proporzionalmente al volume di dati.
+\textbf{Interpretazione.} Lo speedup più marcato (10.9$\times$) si osserva sulla query su \texttt{activity\_logs}, l'unica collezione realmente di grandi dimensioni (30\,000 documenti): senza indice MongoDB esegue una scansione completa (\texttt{COLLSCAN}) su tutti i 30k documenti, con indice risolve la stessa query in $O(\log n)$ (\texttt{IXSCAN}). Le altre query mostrano guadagni modesti (1.1-1.2$\times$) perché le collezioni coinvolte sono piccole ($\le$ 356 documenti): a questa scala \texttt{COLLSCAN} e \texttt{IXSCAN} hanno tempi di esecuzione comparabili, e l'overhead della rete Docker domina la misura. Lo speedup di questi indici crescerebbe proporzionalmente al volume di dati.
+
+\subsection{Uso applicativo dell'indice full-text}
+
+L'indice \texttt{projects\_text\_search} non è un artefatto del solo benchmark: alimenta il campo di ricerca della dashboard, che invoca \texttt{GET /projects/?q=<termini>} eventualmente combinato con \texttt{owner\_id} o \texttt{member\_id} per restringere la ricerca ai progetti posseduti o condivisi. Il filtro risultante è una query \texttt{\$text} ordinata per rilevanza (\texttt{\{\$meta: "textScore"\}}). Il piano di esecuzione conferma l'uso dell'indice:
+
+\begin{lstlisting}
+FETCH -> TEXT_MATCH -> FETCH -> IXSCAN   (indexName: projects_text_search)
+\end{lstlisting}
+
+Si osservi che il filtro su \texttt{owner\_id} è applicato nello stadio \texttt{FETCH} esterno e non risolto dall'indice: MongoDB usa l'indice full-text per risolvere i termini e solo dopo scarta i documenti appartenenti ad altri proprietari. Un indice testuale composto con \texttt{owner\_id} come chiave prefisso risolverebbe entrambe le condizioni in un'unica scansione, ma MongoDB impone che ogni query su un indice testuale composto specifichi un'uguaglianza su tutte le chiavi prefisso: la ricerca globale, non vincolata a un proprietario, diverrebbe ineseguibile. La scelta dell'indice semplice è quindi un compromesso a favore della generalità della query.
+
+Il limite semantico è che \texttt{\$text} confronta parole intere (con stemming), non prefissi: \texttt{quantum} trova ``Quantum computing'', \texttt{quant} no. Una ricerca per sottostringa richiederebbe un'espressione regolare non ancorata, che degenera in \texttt{COLLSCAN}, esattamente ciò che l'indice serve a evitare, e infatti la stessa equivalenza adottata come baseline ``senza indice'' in Tabella~\ref{tab:bench}.
 
 \subsection{Scomposizione del costo della compilazione}
 \label{sec:compile-bench}
@@ -432,9 +447,11 @@ Compilazione LaTeX (Tectonic) & 428.834 & 99.27\,\% \\
 
 \textbf{Interpretazione.} Il livello dati incide per lo \textbf{0.69\,\%} del tempo totale di risposta: anche azzerando completamente il costo della query, il tempo complessivo passerebbe da 432 a 429 ms, un miglioramento non percepibile dall'utente. Si tratta di un'applicazione diretta della legge di Amdahl: lo speedup ottenibile ottimizzando una componente è limitato superiormente dalla frazione di tempo che tale componente occupa. Il collo di bottiglia è la compilazione vera e propria, che è lavoro di CPU e I/O esterno al database e non comprimibile agendo sul modello dei dati.
 
-È comunque utile osservare che la query di compilazione (2.977 ms) risulta più costosa della corrispondente query sui file misurata in Tabella~10 (1.609 ms), pur insistendo sulla stessa collezione e sullo stesso indice. La differenza è nel tipo di accesso: la seconda è un \texttt{count\_documents} che si risolve interamente sull'indice, mentre la prima è una \texttt{find} che materializza i documenti completi, incluso il campo \texttt{content} contenente l'intero sorgente LaTeX. È la distinzione tra la lettura delle sole chiavi di indice e il successivo accesso ai documenti.
+È comunque utile osservare che la query di compilazione (2.977 ms) risulta più costosa della corrispondente query sui file misurata in Tabella~\ref{tab:bench} (1.609 ms), pur insistendo sulla stessa collezione e sullo stesso indice. La differenza è nel tipo di accesso: la seconda è un \texttt{count\_documents} che si risolve interamente sull'indice, mentre la prima è una \texttt{find} che materializza i documenti completi, incluso il campo \texttt{content} contenente l'intero sorgente LaTeX. È la distinzione tra la lettura delle sole chiavi di indice e il successivo accesso ai documenti.
 
-Le leve disponibili sul lato database sarebbero due: una \emph{projection} esplicita, per limitare i campi trasferiti a quelli effettivamente utilizzati, e un indice composto \texttt{project\_id + file\_type}, dato che la query filtra su entrambi i campi mentre l'indice attuale copre solo il primo. Entrambe ridurrebbero i 2.977 ms misurati, ma -- coerentemente con quanto sopra -- l'effetto sul tempo di risposta percepito resterebbe sotto la soglia di misurabilità. La scelta di non implementarle è quindi una conseguenza documentata della misura, non un'omissione.
+Le leve disponibili sul lato database sarebbero due: una \emph{projection} esplicita, per limitare i campi trasferiti a quelli effettivamente utilizzati, e un indice composto \texttt{project\_id + file\_type}, dato che la query filtra su entrambi i campi mentre l'indice attuale copre solo il primo. Entrambe ridurrebbero i 2.977 ms misurati, ma, coerentemente con quanto sopra, l'effetto sul tempo di risposta percepito resterebbe sotto la soglia di misurabilità. La scelta di non implementarle è quindi una conseguenza documentata della misura, non un'omissione.
+
+\pagebreak
 
 % =====================================================
 \section{Aggregation pipeline (JOIN)}
@@ -532,13 +549,13 @@ Pull request mergiate & 14 \\
 In conformità con i requisiti del corso, l'uso di strumenti di intelligenza artificiale generativa è dichiarato in modo trasparente. La tracciatura puntuale, issue per issue e PR per PR, è contenuta nei form di valutazione compilati durante lo svolgimento del progetto (FORM~3 e FORM~4). Di seguito una sintesi delle aree in cui gli strumenti sono stati impiegati.
 
 \begin{itemize}[leftmargin=2.2em]
-  \item \textbf{Progettazione del modello dati} (Issue \#1) -- supporto al ragionamento sui criteri di embedding e referencing e sulla gestione dei file multimediali, con esplicitazione dei vincoli (limite di 16\,MB per documento) alla base delle scelte adottate.
-  \item \textbf{Generazione dati sintetici} (Issue \#2) -- supporto alla stesura dello script di seed; output verificato ed eseguito prima del merge.
-  \item \textbf{Query e aggregazioni} (Issue \#7) -- supporto alla stesura della pipeline di aggregazione multi-stadio (\texttt{\$lookup}, \texttt{\$group}, \texttt{\$sort}); risultati verificati eseguendo la pipeline sui dati di seed.
-  \item \textbf{Indici e benchmark} (Issue \#8--\#9) -- supporto alla definizione degli indici, alla lettura dell'output di \texttt{explain()} e alla struttura dello script di misura; metodologia e interpretazione dei risultati definite dal team.
-  \item \textbf{Autenticazione e compilazione} (Issue \#20--\#21) -- supporto alla configurazione dell'hashing con \texttt{bcrypt} e dei token JWT, e all'invocazione isolata del compilatore esterno (directory temporanea, timeout, semaforo).
-  \item \textbf{Strumentazione della compilazione} (Sezione~\ref{sec:compile-bench}) -- supporto all'implementazione della misurazione per fasi e del relativo endpoint di benchmark; metodologia (documento fisso, warm-up escluso) e interpretazione dei risultati definite dal team.
-  \item \textbf{Documentazione} (Issue \#10) -- Claude Code usato per la generazione della documentazione, il fix del Dockerfile (build-arg \texttt{TARGETARCH}), le traduzioni e il polish del frontend.
+  \item \textbf{Progettazione del modello dati} (Issue \#1): supporto al ragionamento sui criteri di embedding e referencing e sulla gestione dei file multimediali, con esplicitazione dei vincoli (limite di 16\,MB per documento) alla base delle scelte adottate.
+  \item \textbf{Generazione dati sintetici} (Issue \#2): supporto alla stesura dello script di seed; output verificato ed eseguito prima del merge.
+  \item \textbf{Query e aggregazioni} (Issue \#7): supporto alla stesura della pipeline di aggregazione multi-stadio (\texttt{\$lookup}, \texttt{\$group}, \texttt{\$sort}); risultati verificati eseguendo la pipeline sui dati di seed.
+  \item \textbf{Indici e benchmark} (Issue \#8-\#9): supporto alla definizione degli indici, alla lettura dell'output di \texttt{explain()} e alla struttura dello script di misura; metodologia e interpretazione dei risultati definite dal team.
+  \item \textbf{Autenticazione e compilazione} (Issue \#20-\#21): supporto alla configurazione dell'hashing con \texttt{bcrypt} e dei token JWT, e all'invocazione isolata del compilatore esterno (directory temporanea, timeout, semaforo).
+  \item \textbf{Strumentazione della compilazione} (Sezione~\ref{sec:compile-bench}): supporto all'implementazione della misurazione per fasi e del relativo endpoint di benchmark; metodologia (documento fisso, warm-up escluso) e interpretazione dei risultati definite dal team.
+  \item \textbf{Documentazione} (Issue \#10): LLM usato per la generazione della documentazione, il fix del Dockerfile (build-arg \texttt{TARGETARCH}), le traduzioni e il polish del frontend.
 \end{itemize}
 
 In tutti i casi l'output generato è stato eseguito e verificato prima dell'integrazione, e revisionato da un membro del team diverso dall'autore, secondo il workflow standard: 1 issue $\to$ 1 branch $\to$ 1 PR $\to$ 1 review $\to$ merge. Nessun contenuto è stato integrato senza essere compreso e verificabile dal team.
